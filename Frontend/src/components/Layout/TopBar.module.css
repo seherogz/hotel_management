@@ -1,0 +1,53 @@
+.topBar {
+  grid-area: topbar;
+  background-color: white;
+  height: 60px;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 99;
+}
+
+.pageTitle {
+  font-size: 20px;
+  font-weight: 500;
+  color: #333;
+}
+
+.rightSection {
+  display: flex;
+  align-items: center;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+}
+
+.userAvatar {
+  font-size: 24px;
+  color: #3f2b7b;
+  margin-right: 10px;
+}
+
+.userName {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.logoutButton {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.logoutButton:hover {
+  color: #f44336;
+} 
