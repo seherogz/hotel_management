@@ -8,7 +8,7 @@ namespace CleanArchitecture.Core.Entities
         public string Description { get; set; }
         public bool IsActive { get; set; } = true;
         
-        // Navigation properties
+        // Navigation propertie
         public virtual ICollection<Room> Rooms { get; set; } = new List<Room>();
     }
 }
