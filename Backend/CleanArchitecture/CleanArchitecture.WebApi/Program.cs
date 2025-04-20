@@ -194,17 +194,31 @@ static async Task InitializeAndSeedDatabaseAsync(WebApplication app)
         // --- Veritabanı Şema İşlemleri ---
         if (env.IsDevelopment())
         {
-            logger.LogInformation("Development environment. Ensuring DB is deleted and recreated.");
-            logger.LogInformation("Attempting to delete database (if exists)...");
-            bool deleted = await dbContext.Database.EnsureDeletedAsync();
-            logger.LogInformation("Database deleted status: {Deleted}", deleted);
-            logger.LogInformation("Attempting to create database using current model...");
-            bool created = await dbContext.Database.EnsureCreatedAsync();
-            logger.LogInformation("Database created status: {Created}", created);
-            if (created)
+            logger.LogInformation("Development environment. Applying database migrations...");
+            // Eski silme ve oluşturma kodunu kaldır/yorumla:
+            // logger.LogInformation("Attempting to delete database (if exists)...");
+            // bool deleted = await dbContext.Database.EnsureDeletedAsync();
+            // logger.LogInformation("Database deleted status: {Deleted}", deleted);
+            // logger.LogInformation("Attempting to create database using current model...");
+            // bool created = await dbContext.Database.EnsureCreatedAsync();
+            // logger.LogInformation("Database created status: {Created}", created);
+            // if (created)
+            // {
+            //     await Task.Delay(TimeSpan.FromSeconds(2)); // Stabilizasyon için bekle
+            //     logger.LogInformation("Waited 2 seconds after database creation.");
+            // }
+
+            // Verileri silmeden migration'ları uygula:
+            try
             {
-                await Task.Delay(TimeSpan.FromSeconds(2)); // Stabilizasyon için bekle
-                logger.LogInformation("Waited 2 seconds after database creation.");
+                await dbContext.Database.MigrateAsync();
+                logger.LogInformation("Database migrations applied successfully.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "An error occurred while applying database migrations.");
+                // Geliştirme ortamında migration hatası olursa uygulamayı durdurmak isteyebilirsiniz.
+                throw; // Hatanın yukarıya fırlatılması
             }
         }
         else

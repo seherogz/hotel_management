@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import authService from '../services/authService';
 
 // Create the auth context
 const AuthContext = createContext();
@@ -44,32 +45,22 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  // Login function - herhangi bir kullanıcı adı/şifre kombinasyonu ile giriş yapılabilir
+  // Login function - API servisini kullanarak giriş yapar
   const login = async (username, password) => {
     setLoading(true);
     setError(null);
     
     try {
-      // Geliştirme aşamasında herhangi bir kullanıcı adı ve şifre ile giriş yapılabilir
-      // Normalde burada gerçek bir API çağrısı olur
+      // authService'i kullanarak giriş yap
+      const response = await authService.login(username, password);
       
-      // Kullanıcı bilgilerini oluştur
-      const userData = { 
-        name: username, 
-        role: 'Admin',
-        fullName: username
-      };
-      
-      // Kullanıcıyı ayarla ve yerel depolamaya kaydet
-      setUser(userData);
+      // Kullanıcı bilgilerini ayarla
+      setUser(response.user);
       setIsAuthenticated(true);
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('token', 'dev-token-' + Date.now());
-      localStorage.setItem('user', JSON.stringify(userData));
       
-      return { user: userData, token: 'dev-token' };
+      return response;
     } catch (err) {
-      setError(err.message || 'Login failed');
+      setError(err.message || 'Giriş başarısız');
       throw err;
     } finally {
       setLoading(false);

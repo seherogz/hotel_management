@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "tNnWzSf+mno=",
+  "dgSpecHash": "VD9yzwER7BA=",
   "success": true,
-  "projectFilePath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj",
+  "projectFilePath": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj",
   "expectedPackageFiles": [
     "/Users/seheroguz/.nuget/packages/automapper/14.0.0/automapper.14.0.0.nupkg.sha512",
     "/Users/seheroguz/.nuget/packages/fluentvalidation/9.1.2/fluentvalidation.9.1.2.nupkg.sha512",

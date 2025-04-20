@@ -13192,11 +13192,11 @@
   "project": {
     "version": "1.1.0",
     "restore": {
-      "projectUniqueName": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.WebApi/CleanArchitecture.WebApi.csproj",
+      "projectUniqueName": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.WebApi/CleanArchitecture.WebApi.csproj",
       "projectName": "CleanArchitecture.WebApi",
-      "projectPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.WebApi/CleanArchitecture.WebApi.csproj",
+      "projectPath": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.WebApi/CleanArchitecture.WebApi.csproj",
       "packagesPath": "/Users/seheroguz/.nuget/packages/",
-      "outputPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.WebApi/obj/",
+      "outputPath": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.WebApi/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/seheroguz/.nuget/NuGet/NuGet.Config"
@@ -13211,11 +13211,11 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj": {
-              "projectPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj"
+            "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj": {
+              "projectPath": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj"
             },
-            "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Infrastructure/CleanArchitecture.Infrastructure.csproj": {
-              "projectPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Infrastructure/CleanArchitecture.Infrastructure.csproj"
+            "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.Infrastructure/CleanArchitecture.Infrastructure.csproj": {
+              "projectPath": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.Infrastructure/CleanArchitecture.Infrastructure.csproj"
             }
           }
         }

@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "rxVS9t75v9s=",
+  "dgSpecHash": "IWKWhnnPtqU=",
   "success": true,
-  "projectFilePath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.WebApi/CleanArchitecture.WebApi.csproj",
+  "projectFilePath": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.WebApi/CleanArchitecture.WebApi.csproj",
   "expectedPackageFiles": [
     "/Users/seheroguz/.nuget/packages/aspnetcore.healthchecks.npgsql/9.0.0/aspnetcore.healthchecks.npgsql.9.0.0.nupkg.sha512",
     "/Users/seheroguz/.nuget/packages/automapper/14.0.0/automapper.14.0.0.nupkg.sha512",

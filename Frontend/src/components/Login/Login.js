@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
   const [credentials, setCredentials] = useState({
-    username: '',
+    email: '',
     password: ''
   });
   const [error, setError] = useState('');
@@ -37,26 +37,30 @@ const Login = () => {
     e.preventDefault();
     
     // Basic validation
-    if (!credentials.username || !credentials.password) {
-      setError('Kullanıcı adı ve şifre gereklidir.');
+    if (!credentials.email || !credentials.password) {
+      setError('Email ve şifre gereklidir.');
+      return;
+    }
+    
+    // Email validasyonu
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(credentials.email)) {
+      setError('Geçerli bir email adresi giriniz.');
       return;
     }
     
     setError('');
     
-    // Konsola giriş bilgilerini yazdıralım (sadece geliştirme amaçlı)
-    console.log('Giriş bilgileri:', credentials);
-    
     try {
-      // Use the auth context's login function
-      await login(credentials.username, credentials.password);
+      // Use the auth context's login function with email and password
+      await login(credentials.email, credentials.password);
       
       // Navigate to the redirect path after successful login
       navigate(from, { replace: true });
     } catch (err) {
       // Handle error (most errors will be handled by the auth context)
       if (err.response?.status === 401) {
-        setError('Geçersiz kullanıcı adı veya şifre.');
+        setError('Geçersiz email veya şifre.');
       } else if (!authError) {
         setError('Giriş başarısız. Lütfen tekrar deneyin.');
       }
@@ -75,11 +79,11 @@ const Login = () => {
         )}
         
         <input
-          type="text"
-          name="username"
-          placeholder="Kullanıcı Adı"
+          type="email"
+          name="email"
+          placeholder="Email"
           className={styles.inputField}
-          value={credentials.username}
+          value={credentials.email}
           onChange={handleChange}
           disabled={loading}
         />
