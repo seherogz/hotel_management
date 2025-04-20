@@ -4,6 +4,7 @@ import Login from './components/Login/Login';
 import RoomStatusPage from './components/RoomStatus/RoomStatus';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Dashboard from './components/Dashboard/Dashboard';
+import RegisterUser from './components/Register/RegisterUser';
 
 // Protected route component
 const ProtectedRoute = ({ children }) => {
@@ -23,6 +24,27 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+// Admin route component to ensure only admins can access certain pages
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, loading, user } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Check if user has admin role
+  if (user && user.role !== 'Admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
 // Placeholder components for other routes
 const CustomerInfo = () => <div>Customer Info Page - Coming Soon</div>;
 const CheckIn = () => <div>Check-In Page - Coming Soon</div>;
@@ -36,6 +58,12 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      
+      <Route path="/register" element={
+        <ProtectedRoute>
+          <RegisterUser />
+        </ProtectedRoute>
+      } />
       
       <Route path="/dashboard" element={
         <ProtectedRoute>
