@@ -15,6 +15,6 @@ namespace CleanArchitecture.Core.Entities
         public int NumberOfGuests { get; set; }
         public decimal Price { get; set; }
         public int? Rating { get; set; }
-        public string Status { get; set; }
+        public string Status { get; set; } // Checked-in, Pending, Completed, Cancelled
     }
 }

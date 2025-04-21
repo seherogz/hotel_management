@@ -13,9 +13,16 @@ namespace CleanArchitecture.Core.Features.Staff.Commands.CreateStaff
         {
             _staffRepository = staffRepository;
 
-            RuleFor(s => s.Name)
+            RuleFor(p => p.FirstName)
                 .NotEmpty().WithMessage("{PropertyName} is required.")
-                .MaximumLength(100).WithMessage("{PropertyName} must not exceed 100 characters.");
+                .NotNull()
+                .MaximumLength(50).WithMessage("{PropertyName} must not exceed 50 characters.");
+
+            // LastName için kurallar eklendi
+            RuleFor(p => p.LastName)
+                .NotEmpty().WithMessage("{PropertyName} is required.")
+                .NotNull()
+                .MaximumLength(50).WithMessage("{PropertyName} must not exceed 50 characters.");
 
             RuleFor(s => s.Department)
                 .NotEmpty().WithMessage("{PropertyName} is required.")

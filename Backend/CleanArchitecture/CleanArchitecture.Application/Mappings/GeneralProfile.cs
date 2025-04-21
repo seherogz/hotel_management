@@ -142,6 +142,7 @@ namespace CleanArchitecture.Core.Mappings
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.IsActive ? "Active" : "On Leave"))
                 .ForMember(dest => dest.Shifts, opt => opt.MapFrom(src => src.Shifts)); // Alt liste maplenir (Shift -> ShiftViewModel gerekir)
 
+
             // Staff Commands (FirstName/LastName kullanıyor)
             CreateMap<CreateStaffCommand, Staff>(); // Name yerine FirstName/LastName otomatik map edilir.
             CreateMap<UpdateStaffCommand, Staff>(); // Name yerine FirstName/LastName otomatik map edilir.
@@ -156,8 +157,8 @@ namespace CleanArchitecture.Core.Mappings
             // GetShiftsByStaffQueryHandler içindeki Shifts listesi için (aynı ViewModel'ı kullanıyor gibi)
             CreateMap<Shift, Features.Shifts.Queries.GetShiftsByStaff.GetShiftsByStaffViewModel>()
                 .ForMember(dest => dest.StartTime, opt => opt.MapFrom(src => src.StartTime.ToString(@"hh\:mm")))
-                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime.ToString(@"hh\:mm")));
-
+                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime.ToString(@"hh\:mm")))
+                .ForMember(dest => dest.ShiftDate, opt => opt.MapFrom(src => src.ShiftDay.ToString("yyyy-MM-dd")));
 
             // ================== INCOME/EXPENSE MAPPINGS ==================
             CreateMap<CreateIncomeCommand, Income>();

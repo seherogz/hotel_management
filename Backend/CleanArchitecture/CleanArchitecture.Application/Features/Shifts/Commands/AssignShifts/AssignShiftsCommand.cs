@@ -5,6 +5,7 @@ using CleanArchitecture.Core.Interfaces.Repositories;
 using MediatR;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,8 +15,9 @@ namespace CleanArchitecture.Core.Features.Shifts.Commands.AssignShifts
     {
         public string DayOfTheWeek { get; set; }
         public string ShiftType { get; set; }
-        public string StartTime { get; set; }
-        public string EndTime { get; set; }
+        public TimeSpan StartTime { get; set; } // <-- string'den TimeSpan'e değiştirildi
+        public TimeSpan EndTime { get; set; }   // <-- string'den TimeSpan'e değiştirildi
+        public string ShiftDate { get; set; }
     }
 
     public class AssignShiftsCommand : IRequest<bool>
@@ -63,27 +65,26 @@ namespace CleanArchitecture.Core.Features.Shifts.Commands.AssignShifts
             {
                 if (string.IsNullOrEmpty(shiftDetail.DayOfTheWeek) || 
                     string.IsNullOrEmpty(shiftDetail.ShiftType) ||
-                    string.IsNullOrEmpty(shiftDetail.StartTime) ||
-                    string.IsNullOrEmpty(shiftDetail.EndTime))
+                    string.IsNullOrEmpty(shiftDetail.ShiftDate))
                 {
                     continue; // Skip incomplete shift entries
                 }
                 
-                // Convert time strings to TimeSpan
-                if (!TimeSpan.TryParse(shiftDetail.StartTime, out TimeSpan startTime) ||
-                    !TimeSpan.TryParse(shiftDetail.EndTime, out TimeSpan endTime))
+                if (!DateTime.TryParseExact(shiftDetail.ShiftDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedDate))
                 {
-                    throw new ValidationException($"Invalid time format. Use HH:MM format.");
+                    throw new ValidationException($"Invalid date format for shift date '{shiftDetail.ShiftDate}'. Use yyyy-MM-dd format.");
                 }
+                
+                DateTime shiftDayUtc = DateTime.SpecifyKind(parsedDate.Date, DateTimeKind.Utc);
                 
                 var shift = new Shift
                 {
                     StaffId = request.StaffId,
                     DayOfTheWeek = shiftDetail.DayOfTheWeek,
                     ShiftType = shiftDetail.ShiftType,
-                    StartTime = startTime,
-                    EndTime = endTime,
-                    ShiftDay = DateTime.Now // This would be set properly in a real app based on the next occurrence of the day
+                    StartTime = shiftDetail.StartTime,
+                    EndTime = shiftDetail.EndTime,
+                    ShiftDay = shiftDayUtc // This would be set properly in a real app based on the next occurrence of the day
                 };
                 
                 await _shiftRepository.AddAsync(shift);

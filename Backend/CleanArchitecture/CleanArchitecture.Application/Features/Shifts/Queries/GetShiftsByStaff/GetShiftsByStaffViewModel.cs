@@ -7,5 +7,6 @@
         public string ShiftType { get; set; }
         public string StartTime { get; set; }
         public string EndTime { get; set; }
+        public string ShiftDate { get; set; }
     }
 }

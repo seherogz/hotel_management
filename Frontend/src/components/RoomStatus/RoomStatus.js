@@ -17,6 +17,7 @@ import RoomDetailModal from './RoomDetailModal';
 import ReservationForm from './ReservationForm';
 import styles from './RoomStatus.module.css';
 import CalendarView from './CalendarView';
+import { fetchRooms, fetchAvailableRooms, cancelReservation } from './apiService';
 
 // Mock data for rooms
 const mockRooms = [
@@ -159,41 +160,15 @@ const RoomStatusPage = () => {
     setError(null);
     
     try {
-      // API URL'yi çevre değişkeninden al
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+      // API'den odaları çek
+      const roomsData = await fetchRooms();
       
-      // Backend API'den oda verilerini çek
-      const response = await fetch(`${apiUrl}/rooms`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch rooms from server');
+      if (roomsData.error) {
+        throw new Error(roomsData.error);
       }
       
-      const roomsData = await response.json();
-      
-      // Backend'den gelen verileri frontend formatına dönüştür
-      const formattedRooms = roomsData.map(room => {
-        // Burada API'den gelen veriyi frontend'in ihtiyaç duyduğu formata dönüştür
-        return {
-          id: room.id,
-          roomNumber: room.roomNumber || '',
-          capacity: `${room.capacity || '2'} Kişilik`,
-          status: mapStatusFromBackend(room.status),
-          features: parseFeatures(room.features),
-          pricePerNight: room.pricePerNight || 0,
-          // Eğer API'den bir imageUrl gelirse onu kullan, yoksa RoomCard içinde varsayılan resim üretilecek
-          imageUrl: room.imageUrl || null,
-          guest: room.guest ? {
-            name: room.guest.name,
-            checkInDate: formatDate(room.guest.checkInDate),
-            checkOutDate: formatDate(room.guest.checkOutDate)
-          } : null,
-          maintenance: room.maintenance ? {
-            issue: room.maintenance.issue,
-            estimatedCompletionDate: formatDate(room.maintenance.estimatedCompletionDate)
-          } : null
-        };
-      });
+      // API'den gelen verileri frontend formatına dönüştür
+      const formattedRooms = mapRoomsFromApi(roomsData.data || roomsData);
       
       setRooms(formattedRooms);
       setFilteredRooms(formattedRooms);
@@ -205,6 +180,70 @@ const RoomStatusPage = () => {
       setFilteredRooms(mockRooms);
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  // Backend'den tarih aralığına göre müsait odaları çeken fonksiyon
+  const loadAvailableRoomsForDates = async () => {
+    if (!startDate || !endDate) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const roomsData = await fetchAvailableRooms(startDate, endDate);
+      
+      if (roomsData.error) {
+        throw new Error(roomsData.error);
+      }
+      
+      const formattedRooms = mapRoomsFromApi(roomsData.data || roomsData);
+      
+      setRooms(formattedRooms);
+      setFilteredRooms(formattedRooms);
+    } catch (err) {
+      console.error('Error fetching available rooms:', err);
+      setError('Müsait odaları yüklerken bir hata oluştu.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // API'den gelen oda verilerini frontend formatına dönüştür
+  const mapRoomsFromApi = (roomsData) => {
+    if (!roomsData || !Array.isArray(roomsData)) return [];
+    
+    return roomsData.map(room => ({
+      id: room.id,
+      roomNumber: room.roomNumber?.toString() || '',
+      capacity: `${room.capacity || '2'} Kişilik`,
+      status: determineRoomStatus(room),
+      features: parseFeatures(room.amenities || room.features),
+      pricePerNight: room.pricePerNight || 0,
+      imageUrl: room.imageUrl || null,
+      guest: room.currentReservation ? {
+        name: room.currentReservation.customerName || 
+              (room.currentReservation.customer ? 
+                `${room.currentReservation.customer.firstName} ${room.currentReservation.customer.lastName}` : ''),
+        checkInDate: formatDate(room.currentReservation.startDate),
+        checkOutDate: formatDate(room.currentReservation.endDate),
+        reservationId: room.currentReservation.id
+      } : null,
+      maintenance: room.maintenanceIssue ? {
+        issue: room.maintenanceIssue.issueDescription || 'Bakım',
+        estimatedCompletionDate: formatDate(room.maintenanceIssue.estimatedCompletionDate)
+      } : null
+    }));
+  };
+  
+  // Odanın durumunu belirleme
+  const determineRoomStatus = (room) => {
+    if (room.isOnMaintenance) {
+      return 'Under Maintenance';
+    } else if (room.status === 'occupied' || room.currentReservation) {
+      return 'Occupied';
+    } else {
+      return 'Available';
     }
   };
   
@@ -235,7 +274,7 @@ const RoomStatusPage = () => {
     
     // Zaten dizi ise direkt döndür
     if (Array.isArray(features)) {
-      return features;
+      return features.map(f => typeof f === 'object' ? f.name : f);
     }
     
     return ['TV', 'Minibar', 'Wi-Fi'];
@@ -262,14 +301,8 @@ const RoomStatusPage = () => {
 
       // Date range filter (would need to convert dates to compare)
       if (startDate && endDate) {
-        // This is a simplification - in a real app, you'd need to check
-        // if the room is available between these dates
-        filtered = filtered.filter(room => 
-          room.status !== 'Occupied' || 
-          !room.guest || 
-          (new Date(room.guest.checkOutDate) <= startDate || 
-           new Date(room.guest.checkInDate) >= endDate)
-        );
+        // If dates are selected, trigger API call to get available rooms
+        loadAvailableRoomsForDates();
       }
 
       // Features filter
@@ -285,7 +318,7 @@ const RoomStatusPage = () => {
     };
 
     applyFilters();
-  }, [rooms, roomNumberSearch, statusFilter, startDate, endDate, selectedFeatures]);
+  }, [rooms, roomNumberSearch, statusFilter, selectedFeatures]);
 
   const handleRefresh = () => {
     setIsLoading(true);
@@ -318,33 +351,55 @@ const RoomStatusPage = () => {
     setSelectedRoom(null);
   };
 
-  const handleCancelReservation = (room) => {
-    // API'ye iptal isteği gönderilebilir
+  const handleCancelReservation = async (room) => {
+    // Send cancellation request to API
     if (window.confirm(`${room.roomNumber} numaralı odanın rezervasyonunu iptal etmek istediğinize emin misiniz?`)) {
-      // Burada gerçek API çağrısı olacak
-      // Şimdilik mock verileri güncelliyoruz
-      const updatedRooms = rooms.map(r => {
-        if (r.id === room.id) {
-          return {
-            ...r,
-            status: 'Available',
-            guest: null
-          };
+      try {
+        setIsLoading(true);
+        
+        // Get reservation ID from room data
+        const reservationId = room.guest?.reservationId;
+        
+        if (!reservationId) {
+          throw new Error('Rezervasyon ID bulunamadı');
         }
-        return r;
-      });
-      
-      setRooms(updatedRooms);
-      setFilteredRooms(updatedRooms.filter(r => {
-        // Mevcut filtreleri uygula
-        if (roomNumberSearch && !r.roomNumber.includes(roomNumberSearch)) return false;
-        if (statusFilter && r.status !== statusFilter) return false;
-        // Diğer filtreler de burada uygulanabilir
-        return true;
-      }));
-      
-      alert(`${room.roomNumber} numaralı oda rezervasyonu iptal edildi.`);
-      handleCloseModal();
+        
+        // Call API to cancel reservation
+        await cancelReservation(reservationId);
+        
+        // Update local state
+        const updatedRooms = rooms.map(r => {
+          if (r.id === room.id) {
+            return {
+              ...r,
+              status: 'Available',
+              guest: null
+            };
+          }
+          return r;
+        });
+        
+        setRooms(updatedRooms);
+        
+        // Apply current filters
+        const newFilteredRooms = updatedRooms.filter(r => {
+          // Apply current filters
+          if (roomNumberSearch && !r.roomNumber.includes(roomNumberSearch)) return false;
+          if (statusFilter && r.status !== statusFilter) return false;
+          // Other filters can be applied here
+          return true;
+        });
+        
+        setFilteredRooms(newFilteredRooms);
+        
+        alert(`${room.roomNumber} numaralı oda rezervasyonu iptal edildi.`);
+        handleCloseModal();
+      } catch (error) {
+        console.error('Rezervasyon iptal edilirken hata:', error);
+        alert(`Hata: ${error.message || 'Rezervasyon iptal edilemedi'}`);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -392,11 +447,8 @@ const RoomStatusPage = () => {
       // Rezervasyon formunu kapat
       handleCloseReservationForm();
       
-      // Verilerin güncellendiğinden emin olmak için zorunlu yenileme
-      setTimeout(() => {
-        console.log("Odalar güncellendi:", updatedRooms);
-        console.log("Filtrelenmiş odalar:", newFilteredRooms);
-      }, 100);
+      // Verilerin güncellendiğinden emin olmak için backend'den yeniden yükle
+      handleRefresh();
     }
   };
 
@@ -466,6 +518,17 @@ const RoomStatusPage = () => {
 
         <div className={styles.pageHeader}>
           <h1 className={styles.pageTitle}>Oda Durumu</h1>
+          <div className={styles.statusLegend}>
+            <div className={styles.statusItem}>
+              <span className={`${styles.statusDot} ${styles.available}`}></span> Müsait
+            </div>
+            <div className={styles.statusItem}>
+              <span className={`${styles.statusDot} ${styles.occupied}`}></span> Dolu
+            </div>
+            <div className={styles.statusItem}>
+              <span className={`${styles.statusDot} ${styles.maintenance}`}></span> Bakımda
+            </div>
+          </div>
         </div>
 
         {error && renderError()}
@@ -610,6 +673,8 @@ const RoomStatusPage = () => {
             room={selectedRoom}
             onClose={handleCloseReservationForm}
             onCreateReservation={handleCreateReservation}
+            startDate={startDate}
+            endDate={endDate}
           />
         )}
       </div>

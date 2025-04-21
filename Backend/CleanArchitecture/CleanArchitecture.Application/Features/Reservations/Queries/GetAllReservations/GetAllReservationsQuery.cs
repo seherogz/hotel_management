@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 namespace CleanArchitecture.Core.Features.Reservations.Queries.GetAllReservations
 {
+    // Query sınıfı aynı kalır
     public class GetAllReservationsQuery : IRequest<PagedResponse<GetAllReservationsViewModel>>
     {
         public int PageNumber { get; set; }
@@ -21,6 +22,7 @@ namespace CleanArchitecture.Core.Features.Reservations.Queries.GetAllReservation
         public int? RoomId { get; set; }
     }
 
+    // Handler sınıfı güncellendi
     public class GetAllReservationsQueryHandler : IRequestHandler<GetAllReservationsQuery, PagedResponse<GetAllReservationsViewModel>>
     {
         private readonly IReservationRepositoryAsync _reservationRepository;
@@ -36,62 +38,65 @@ namespace CleanArchitecture.Core.Features.Reservations.Queries.GetAllReservation
 
         public async Task<PagedResponse<GetAllReservationsViewModel>> Handle(GetAllReservationsQuery request, CancellationToken cancellationToken)
         {
-            IReadOnlyList<Entities.Reservation> reservations;
-            
-            // Apply filters
+            // İlişkili verileri yüklenmiş Reservation listesini tutacak değişken
+            IReadOnlyList<Entities.Reservation> reservationsData;
+            int totalRecords; // Toplam kayıt sayısını tutmak için
+
+            // Filtreleri uygula ve veriyi çek
             if (request.CheckInDate.HasValue && request.CheckOutDate.HasValue)
             {
-                // Get reservations for a specific date range
-                reservations = await _reservationRepository.GetReservationsByDateRangeAsync(
-                    request.CheckInDate.Value, request.CheckOutDate.Value);
+                reservationsData = await _reservationRepository.GetReservationsByDateRangeAsync(request.CheckInDate.Value, request.CheckOutDate.Value);
+                totalRecords = reservationsData.Count;
             }
             else if (!string.IsNullOrEmpty(request.Status))
             {
-                // Get reservations by status
-                reservations = await _reservationRepository.GetReservationsByStatusAsync(request.Status);
+                reservationsData = await _reservationRepository.GetReservationsByStatusAsync(request.Status);
+                totalRecords = reservationsData.Count;
             }
             else if (request.CustomerId.HasValue)
             {
-                // Get reservations for a specific customer
-                reservations = await _reservationRepository.GetReservationsByCustomerIdAsync(request.CustomerId.Value);
+                reservationsData = await _reservationRepository.GetReservationsByCustomerIdAsync(request.CustomerId.Value);
+                totalRecords = reservationsData.Count;
             }
             else if (request.RoomId.HasValue)
             {
-                // Get reservations for a specific room
-                reservations = await _reservationRepository.GetReservationsByRoomIdAsync(request.RoomId.Value);
+                reservationsData = await _reservationRepository.GetReservationsByRoomIdAsync(request.RoomId.Value);
+                totalRecords = reservationsData.Count;
             }
             else
             {
-                // Get all reservations (paged)
-                reservations = await _reservationRepository.GetPagedReponseAsync(request.PageNumber, request.PageSize);
+                // Filtre yoksa, sayfalanmış ve ilişkili verileri içeren yeni metodu kullan
+                var pagedResult = await _reservationRepository.GetPagedReservationsWithDetailsAsync(request.PageNumber, request.PageSize);
+                reservationsData = pagedResult.data;
+                totalRecords = pagedResult.totalCount; // Toplam sayıyı doğrudan al
             }
-            
-            // Apply paging if specific filters weren't applied
-            var pagedReservations = reservations
-                .Skip((request.PageNumber - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .ToList();
-            
-            var reservationViewModels = _mapper.Map<List<GetAllReservationsViewModel>>(pagedReservations);
-            
-            // Set customer names
-            foreach (var reservationViewModel in reservationViewModels)
+
+            // Filtreli durumlarda çekilen tüm veriden sayfalama yap
+            // (Not: Büyük veri setlerinde bu verimsiz olabilir, filtrelemeyi ve sayfalamayı birleştirmek daha iyidir)
+            List<Entities.Reservation> pagedDataToMap;
+            if (request.CheckInDate.HasValue || !string.IsNullOrEmpty(request.Status) || request.CustomerId.HasValue || request.RoomId.HasValue)
             {
-                var reservation = pagedReservations.FirstOrDefault(r => r.Id == reservationViewModel.Id);
-                if (reservation?.Customer != null)
-                {
-                    reservationViewModel.CustomerName = $"{reservation.Customer.FirstName} {reservation.Customer.LastName}";
-                }
-                
-                if (reservation?.Room != null)
-                {
-                    reservationViewModel.RoomNumber = reservation.Room.RoomNumber;
-                    reservationViewModel.RoomType = reservation.Room.RoomType;
-                }
+                 // Filtreli ise, bellekte sayfalama yap
+                 pagedDataToMap = reservationsData
+                    .Skip((request.PageNumber - 1) * request.PageSize)
+                    .Take(request.PageSize)
+                    .ToList();
             }
-            
+            else
+            {
+                // Filtresiz durumda zaten sayfalama yapıldı
+                pagedDataToMap = reservationsData.ToList();
+            }
+
+            // AutoMapper ile ViewModel'e dönüştür
+            // Artık Customer ve Room bilgileri de geldiği için CustomerName, RoomNumber, RoomType maplenecek.
+            var reservationViewModels = _mapper.Map<List<GetAllReservationsViewModel>>(pagedDataToMap);
+
+            // MANUEL EŞLEŞTİRME DÖNGÜSÜNE GEREK YOK, KALDIRILDI.
+
+            // PagedResponse'u döndür
             return new PagedResponse<GetAllReservationsViewModel>(
-                reservationViewModels, request.PageNumber, request.PageSize, reservations.Count);
+                reservationViewModels, request.PageNumber, request.PageSize, totalRecords); // Toplam kayıt sayısı kullanıldı
         }
     }
 }
