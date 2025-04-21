@@ -2,14 +2,10 @@
 using CleanArchitecture.Core.Features.Amenities.Queries.GetRoomAmenities;
 using CleanArchitecture.Core.Features.MaintenanceIssues.Commands.AddMaintenanceIssue;
 using CleanArchitecture.Core.Features.MaintenanceIssues.Queries.GetMaintenanceIssuesByRoom;
-using CleanArchitecture.Core.Features.Rooms.Commands.CancelReservation;
 using CleanArchitecture.Core.Features.Rooms.Commands.CreateRoom;
 using CleanArchitecture.Core.Features.Rooms.Commands.DeleteRoomById;
-using CleanArchitecture.Core.Features.Rooms.Commands.ReserveRoom;
-using CleanArchitecture.Core.Features.Rooms.Commands.UpdateMaintenanceStatus;
 using CleanArchitecture.Core.Features.Rooms.Commands.UpdateRoom;
 using CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms;
-using CleanArchitecture.Core.Features.Rooms.Queries.GetAvailableRooms;
 using CleanArchitecture.Core.Features.Rooms.Queries.GetRoomById;
 using CleanArchitecture.Core.Wrappers;
 using Microsoft.AspNetCore.Authorization;
@@ -18,6 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CleanArchitecture.Core.Features.MaintenanceIssues.Commands.ResolveMaintenanceIssue;
 
 namespace CleanArchitecture.WebApi.Controllers.v1
 {
@@ -25,52 +22,6 @@ namespace CleanArchitecture.WebApi.Controllers.v1
     [Authorize]
     public class RoomController : BaseApiController
     {
-        // GET: api/v1/Room/available
-        [HttpGet("available")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PagedResponse<GetAvailableRoomsViewModel>))]
-        public async Task<PagedResponse<GetAvailableRoomsViewModel>> GetAvailableRooms([FromQuery] GetAvailableRoomsParameter filter)
-        {
-            return await Mediator.Send(new GetAvailableRoomsQuery
-            {
-                PageSize = filter.PageSize,
-                PageNumber = filter.PageNumber,
-                StartDate = filter.StartDate,
-                EndDate = filter.EndDate,
-                RoomType = filter.RoomType,
-                Status = filter.Status,
-                Features = filter.Features
-            });
-        }
-        
-        // POST: api/v1/Room/reserve
-        [HttpPost("reserve")]
-        [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> ReserveRoom(ReserveRoomCommand command)
-        {
-            var id = await Mediator.Send(command);
-            return Ok(new { id });
-        }
-        
-        // POST: api/v1/Room/update-maintenance-status
-        [HttpPost("update-maintenance-status")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> UpdateMaintenanceStatus(UpdateMaintenanceStatusCommand command)
-        {
-            var id = await Mediator.Send(command);
-            return Ok(new { id });
-        }
-        
-        // POST: api/v1/Room/cancel-reservation
-        [HttpPost("cancel-reservation")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> CancelReservation(CancelReservationCommand command)
-        {
-            var result = await Mediator.Send(command);
-            return Ok(new { success = result });
-        }
         // GET: api/v1/Room
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PagedResponse<GetAllRoomsViewModel>))]
@@ -81,8 +32,11 @@ namespace CleanArchitecture.WebApi.Controllers.v1
                 PageSize = filter.PageSize,
                 PageNumber = filter.PageNumber,
                 RoomType = filter.RoomType,
-                Status = filter.Status,
-                Floor = filter.Floor
+                Floor = filter.Floor,
+                IsOnMaintenance = filter.IsOnMaintenance, // <<< EKLENDİ
+                AvailabilityStartDate = filter.AvailabilityStartDate, // <<< EKLENDİ
+                AvailabilityEndDate = filter.AvailabilityEndDate, // <<< EKLENDİ
+                StatusCheckDate = filter.StatusCheckDate
             });
         }
 
@@ -155,24 +109,45 @@ namespace CleanArchitecture.WebApi.Controllers.v1
         [HttpGet("{id}/maintenance-issues")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<GetMaintenanceIssuesByRoomViewModel>))]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetMaintenanceIssues(int id)
+        public async Task<IActionResult> GetMaintenanceIssues(int id) // CreatedAtAction'ın referans verdiği metod
         {
             return Ok(await Mediator.Send(new GetMaintenanceIssuesByRoomQuery { RoomId = id }));
         }
 
-        // POST: api/v1/Room/5/maintenance-issues
         [HttpPost("{id}/maintenance-issues")]
-        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(object))] // Yanıt tipini güncelledik
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> AddMaintenanceIssue(int id, AddMaintenanceIssueCommand command)
+        // Parametre olarak AddMaintenanceIssueRequest DTO'sunu [FromBody] ile alın
+        public async Task<IActionResult> AddMaintenanceIssue(int id, [FromBody] AddMaintenanceIssueRequest requestBody)
         {
-            if (id != command.RoomId)
+            // Mediator'a gönderilecek Command nesnesini oluşturun
+            var command = new AddMaintenanceIssueCommand
             {
-                return BadRequest();
-            }
+                // RoomId'yi route parametresi 'id' den alın
+                RoomId = id,
+                // Diğer özellikleri requestBody DTO'sundan atayın
+                IssueDescription = requestBody.IssueDescription,
+                EstimatedCompletionDate = requestBody.EstimatedCompletionDate
+            };
+
+            // Command'ı Mediator ile gönderin
             var issueId = await Mediator.Send(command);
-            return CreatedAtAction(nameof(GetMaintenanceIssues), new { id }, new { id = issueId });
+
+            // CreatedAtAction yanıtını doğru route değerleri ile döndürün
+            return CreatedAtAction(nameof(GetMaintenanceIssues), new { id = id }, new { id = issueId });
+        }
+
+        
+        // POST: api/v1/Room/{roomId}/maintenance-issues/{issueId}/resolve
+        [HttpPost("{roomId}/maintenance-issues/{issueId}/resolve")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Yanıt tipini güncelledik
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> ResolveMaintenanceIssue(int roomId, int issueId)
+        {
+            var resultRoomId = await Mediator.Send(new ResolveMaintenanceIssueCommand { RoomId = roomId, MaintenanceIssueId = issueId });
+            return Ok(new { Message = $"Maintenance issue {issueId} for room {roomId} resolved.", RoomId = resultRoomId });
         }
     }
 }

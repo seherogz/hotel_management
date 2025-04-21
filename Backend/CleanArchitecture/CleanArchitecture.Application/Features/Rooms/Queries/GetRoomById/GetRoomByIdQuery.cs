@@ -1,4 +1,5 @@
-﻿using System;
+﻿// File: Backend/CleanArchitecture/CleanArchitecture.Application/Features/Rooms/Queries/GetRoomById/GetRoomByIdQuery.cs
+using System;
 using AutoMapper;
 using CleanArchitecture.Core.Entities;
 using CleanArchitecture.Core.Exceptions;
@@ -8,61 +9,96 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CleanArchitecture.Application.Interfaces;
+using CleanArchitecture.Core.Interfaces; // IApplicationDbContext, IDateTimeService için
+using Microsoft.EntityFrameworkCore;
 
 namespace CleanArchitecture.Core.Features.Rooms.Queries.GetRoomById
 {
+    // Query Sınıfı
     public class GetRoomByIdQuery : IRequest<GetRoomByIdViewModel>
     {
         public int Id { get; set; }
+        public DateTime? StatusCheckDate { get; set; } // Hangi tarih için durum hesaplanacak?
     }
 
+    // Query Handler Sınıfı
     public class GetRoomByIdQueryHandler : IRequestHandler<GetRoomByIdQuery, GetRoomByIdViewModel>
     {
-        private readonly IRoomRepositoryAsync _roomRepository;
-        private readonly IAmenityRepositoryAsync _amenityRepository;
-        private readonly IMaintenanceIssueRepositoryAsync _maintenanceIssueRepository;
+        private readonly IApplicationDbContext _context; // DbContext kullanıyoruz
         private readonly IMapper _mapper;
+        private readonly IDateTimeService _dateTimeService;
+        // Amenity ve MaintenanceIssue için ayrı repository'lere gerek yok, context yeterli.
 
         public GetRoomByIdQueryHandler(
-            IRoomRepositoryAsync roomRepository,
-            IAmenityRepositoryAsync amenityRepository,
-            IMaintenanceIssueRepositoryAsync maintenanceIssueRepository,
-            IMapper mapper)
+            IApplicationDbContext context,
+            IMapper mapper,
+            IDateTimeService dateTimeService)
         {
-            _roomRepository = roomRepository;
-            _amenityRepository = amenityRepository;
-            _maintenanceIssueRepository = maintenanceIssueRepository;
-            _mapper = mapper;
+             _context = context;
+             _mapper = mapper;
+             _dateTimeService = dateTimeService;
         }
 
         public async Task<GetRoomByIdViewModel> Handle(GetRoomByIdQuery request, CancellationToken cancellationToken)
         {
-            // Fetch room without related data initially
-            var room = await _roomRepository.GetByIdAsync(request.Id);
+            // Durumu hesaplamak için ilişkili verileri (Amenities, MaintenanceIssues, Reservations) çekmeliyiz.
+            var room = await _context.Rooms
+                .Include(r => r.Amenities)
+                .Include(r => r.MaintenanceIssues)
+                // İlgili rezervasyonları çek (Aktif veya Bekleyen)
+                .Include(r => r.Reservations.Where(res => res.Status == "Pending" || res.Status == "Checked-in"))
+                .AsNoTracking() // Detay sorgusu, izlemeye gerek yok
+                .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
             if (room == null)
             {
                 throw new EntityNotFoundException("Room", request.Id);
             }
 
-            // Map basic properties (AutoMapper will now ignore Features and MaintenanceDetails)
+            // Temel özellikleri map'le (ViewModel'da Status yok, IsOnMaintenance ve ComputedStatus var)
             var roomViewModel = _mapper.Map<GetRoomByIdViewModel>(room);
 
-            // Get room amenities separately
-            var amenities = await _amenityRepository.GetByRoomIdAsync(room.Id);
-            // Ensure 'amenities' is not null before selecting names
-            roomViewModel.Features = amenities?.Select(a => a.Name).ToList() ?? new List<string>();
+            // Özellikler (Amenities) - AutoMapper map'lememişse manuel yap (GeneralProfile'a bağlı)
+            // Bu map'leme GeneralProfile'da Ignore edildiği için manuel doldurma doğru.
+            roomViewModel.Features = room.Amenities?.Select(a => a.Name).ToList() ?? new List<string>();
 
-            // Get maintenance issues if room is under maintenance
-            // Check room status using a safer method (e.g., constants or enum) if possible
-            if (room.Status != null && room.Status.Equals("on maintenance", StringComparison.OrdinalIgnoreCase))
-            {
-                var maintenanceIssues = await _maintenanceIssueRepository.GetByRoomIdAsync(room.Id);
-                // Ensure 'maintenanceIssues' is not null before mapping
-                roomViewModel.MaintenanceDetails = _mapper.Map<List<MaintenanceIssueViewModel>>(maintenanceIssues) ?? new List<MaintenanceIssueViewModel>();
-            }
+            // Bakım Detayları - AutoMapper map'lememişse manuel yap
+            roomViewModel.MaintenanceDetails = _mapper.Map<List<MaintenanceIssueViewModel>>(room.MaintenanceIssues) ?? new List<MaintenanceIssueViewModel>();
+
+            // Bakım Durumu (AutoMapper ile map edilmiş olmalı)
+            // roomViewModel.IsOnMaintenance = room.IsOnMaintenance;
+
+            // Dinamik Durum Hesaplama
+            var statusCheckDate = request.StatusCheckDate?.Date ?? _dateTimeService.NowUtc.Date;
+            roomViewModel.ComputedStatus = CalculateRoomStatus(room, statusCheckDate);
+            roomViewModel.StatusCheckDate = statusCheckDate;
 
             return roomViewModel;
+        }
+
+         // Oda durumunu hesaplayan yardımcı metot (GetAllRoomsQueryHandler ile aynı)
+        private string CalculateRoomStatus(Room room, DateTime checkDate)
+        {
+            if (room.IsOnMaintenance)
+            {
+                return "Maintenance";
+            }
+
+            // Include ile çekilen, filtrelenmiş (Pending veya Checked-in) rezervasyonları kullan
+            var relevantReservation = room.Reservations
+                .FirstOrDefault(res =>
+                    res.StartDate.Date <= checkDate &&
+                    res.EndDate.Date > checkDate);
+
+            if (relevantReservation != null)
+            {
+                 if (relevantReservation.Status == "Checked-in")
+                 {
+                      return "Occupied";
+                 }
+            }
+            return "Available";
         }
     }
 }

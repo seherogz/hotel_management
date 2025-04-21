@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿// File: Backend/CleanArchitecture/CleanArchitecture.Application/Entities/Room.cs
+using System.Collections.Generic;
 
 namespace CleanArchitecture.Core.Entities
 {
@@ -8,10 +9,10 @@ namespace CleanArchitecture.Core.Entities
         public string RoomType { get; set; }
         public int Floor { get; set; }
         public string Capacity { get; set; }
-        public string Status { get; set; }
         public decimal PricePerNight { get; set; }
         public string Description { get; set; }
-        
+        public bool IsOnMaintenance { get; set; } = false;
+
         // Navigation properties
         public virtual ICollection<MaintenanceIssue> MaintenanceIssues { get; set; } = new List<MaintenanceIssue>();
         public virtual ICollection<Amenity> Amenities { get; set; } = new List<Amenity>();

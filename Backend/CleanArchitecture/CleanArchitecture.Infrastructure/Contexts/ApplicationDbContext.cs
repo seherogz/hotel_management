@@ -1,4 +1,5 @@
-﻿using System;
+﻿// File: Backend/CleanArchitecture/CleanArchitecture.Infrastructure/Contexts/ApplicationDbContext.cs
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using CleanArchitecture.Application.Interfaces;
@@ -15,7 +16,7 @@ namespace CleanArchitecture.Infrastructure.Contexts
         private readonly ILogger<ApplicationDbContext> _logger;
 
         public ApplicationDbContext(
-            DbContextOptions<ApplicationDbContext> options, 
+            DbContextOptions<ApplicationDbContext> options,
             ILogger<ApplicationDbContext> logger = null) : base(options)
         {
             _logger = logger;
@@ -34,6 +35,31 @@ namespace CleanArchitecture.Infrastructure.Contexts
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            // Burada AuditableBaseEntity için Created/LastModified gibi alanları otomatik dolduran bir logic eklenebilir.
+            // Örnek:
+            /*
+            var entries = ChangeTracker
+                .Entries()
+                .Where(e => e.Entity is AuditableBaseEntity && (
+                        e.State == EntityState.Added
+                        || e.State == EntityState.Modified));
+
+            // IAuthenticatedUserService inject edilerek kullanıcı bilgisi alınabilir.
+            // var userId = _authenticatedUserService.UserId;
+            var currentUsername = "System"; // Veya gerçek kullanıcı adı
+
+            foreach (var entityEntry in entries)
+            {
+                ((AuditableBaseEntity)entityEntry.Entity).LastModified = DateTime.UtcNow;
+                ((AuditableBaseEntity)entityEntry.Entity).LastModifiedBy = currentUsername;
+
+                if (entityEntry.State == EntityState.Added)
+                {
+                    ((AuditableBaseEntity)entityEntry.Entity).Created = DateTime.UtcNow;
+                    ((AuditableBaseEntity)entityEntry.Entity).CreatedBy = currentUsername;
+                }
+            }
+            */
             try
             {
                 return await base.SaveChangesAsync(cancellationToken);
@@ -49,8 +75,6 @@ namespace CleanArchitecture.Infrastructure.Contexts
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure entity relationships and constraints
-            
             // Amenity configuration
             modelBuilder.Entity<Amenity>(entity =>
             {
@@ -67,21 +91,24 @@ namespace CleanArchitecture.Infrastructure.Contexts
             {
                 entity.Property(e => e.RoomNumber)
                     .IsRequired();
-                
+
                 entity.Property(e => e.RoomType)
                     .IsRequired()
                     .HasMaxLength(50);
-                
+
                 entity.Property(e => e.Capacity)
                     .HasMaxLength(20);
-                
-                entity.Property(e => e.Status)
-                    .IsRequired()
-                    .HasMaxLength(20);
-                
+
+                // Status alanı kaldırıldı
+                // entity.Property(e => e.Status)...
+
+                // IsOnMaintenance alanı için varsayılan değer
+                entity.Property(e => e.IsOnMaintenance)
+                    .HasDefaultValue(false); // <<< GÜNCELLENDİ
+
                 entity.Property(e => e.Description)
                     .HasMaxLength(500);
-                
+
                 entity.Property(e => e.PricePerNight)
                     .HasColumnType("decimal(18,2)");
             });
@@ -108,6 +135,10 @@ namespace CleanArchitecture.Infrastructure.Contexts
                 entity.HasOne(r => r.Customer)
                     .WithMany(c => c.Reservations)
                     .HasForeignKey(r => r.CustomerId);
+
+                 // Rezervasyon Durumu için string uzunluğu (isteğe bağlı)
+                 entity.Property(e => e.Status)
+                    .HasMaxLength(20);
             });
 
             // Staff configuration

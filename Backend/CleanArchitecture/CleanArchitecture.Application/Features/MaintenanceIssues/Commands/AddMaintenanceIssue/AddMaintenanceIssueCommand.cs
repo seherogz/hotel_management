@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿// File: Backend/CleanArchitecture/CleanArchitecture.Application/Features/MaintenanceIssues/Commands/AddMaintenanceIssue/AddMaintenanceIssueCommand.cs
+using AutoMapper;
 using CleanArchitecture.Core.Exceptions;
 using CleanArchitecture.Core.Interfaces.Repositories;
 using MediatR;
@@ -35,20 +36,22 @@ namespace CleanArchitecture.Core.Features.MaintenanceIssues.Commands.AddMaintena
         public async Task<int> Handle(AddMaintenanceIssueCommand request, CancellationToken cancellationToken)
         {
             var room = await _roomRepository.GetByIdAsync(request.RoomId);
-            
+
             if (room == null)
             {
                 throw new EntityNotFoundException("Room", request.RoomId);
             }
-            
-            // Update room status to "on maintenance"
-            room.Status = "on maintenance";
+
+            // Odayı bakım durumuna al
+            room.IsOnMaintenance = true; // <<< GÜNCELLENDİ
             await _roomRepository.UpdateAsync(room);
-            
+
             // Add maintenance issue
             var maintenanceIssue = _mapper.Map<MaintenanceIssue>(request);
+            // RoomId zaten request içinde var, AutoMapper maplemeli. Elle set etmeye gerek yok.
+            // maintenanceIssue.RoomId = request.RoomId;
             await _maintenanceIssueRepository.AddAsync(maintenanceIssue);
-            
+
             return maintenanceIssue.Id;
         }
     }

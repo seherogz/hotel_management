@@ -911,11 +911,11 @@
   "project": {
     "version": "1.1.0",
     "restore": {
-      "projectUniqueName": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj",
+      "projectUniqueName": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj",
       "projectName": "CleanArchitecture.Core",
-      "projectPath": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj",
+      "projectPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj",
       "packagesPath": "/Users/seheroguz/.nuget/packages/",
-      "outputPath": "/Users/seheroguz/Desktop/SONNNNNN/CSE332-Software Project/Backend/CleanArchitecture/CleanArchitecture.Application/obj/",
+      "outputPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/seheroguz/.nuget/NuGet/NuGet.Config"

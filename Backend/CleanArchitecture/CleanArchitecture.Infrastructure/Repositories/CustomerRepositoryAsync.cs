@@ -39,5 +39,11 @@ namespace CleanArchitecture.Infrastructure.Repositories
                 .Where(c => c.Status == status)
                 .ToListAsync();
         }
+        
+        public async Task<Customer> GetByIdNumberAsync(string idNumber)
+        {
+            return await _customers
+                .FirstOrDefaultAsync(c => c.IdNumber == idNumber);
+        }
     }
 }

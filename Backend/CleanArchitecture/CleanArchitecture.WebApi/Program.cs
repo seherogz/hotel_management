@@ -194,43 +194,48 @@ static async Task InitializeAndSeedDatabaseAsync(WebApplication app)
         // --- Veritabanı Şema İşlemleri ---
         if (env.IsDevelopment())
         {
-            logger.LogInformation("Development environment. Applying database migrations...");
-            // Eski silme ve oluşturma kodunu kaldır/yorumla:
-            // logger.LogInformation("Attempting to delete database (if exists)...");
-            // bool deleted = await dbContext.Database.EnsureDeletedAsync();
-            // logger.LogInformation("Database deleted status: {Deleted}", deleted);
-            // logger.LogInformation("Attempting to create database using current model...");
-            // bool created = await dbContext.Database.EnsureCreatedAsync();
-            // logger.LogInformation("Database created status: {Created}", created);
-            // if (created)
-            // {
-            //     await Task.Delay(TimeSpan.FromSeconds(2)); // Stabilizasyon için bekle
-            //     logger.LogInformation("Waited 2 seconds after database creation.");
-            // }
+            // <<<< BAŞLANGIÇ: Migration Kodu Yerine Eklenecek Bölüm >>>>
+            logger.LogInformation("Development environment. Ensuring database is created from model...");
 
-            // Verileri silmeden migration'ları uygula:
+            // Geliştirme ortamında her başlangıçta veritabanını silip yeniden oluşturmak için:
+            // 1. Önce (varsa) sil:
+            // logger.LogInformation("Attempting to delete database (if exists)...");
+            // bool deleted = await dbContext.Database.EnsureDeletedAsync(); // Önce sil
+            // logger.LogInformation("Database deleted status: {Deleted}", deleted);
+
+            // 2. Sonra modelden oluştur:
+            logger.LogInformation("Attempting to create database using current model...");
+            bool created = await dbContext.Database.EnsureCreatedAsync(); // Sonra oluştur
+            logger.LogInformation("Database created status: {Created}", created);
+            // <<<< BİTİŞ: Migration Kodu Yerine Eklenecek Bölüm >>>>
+
+            // Eski migration kodunu silin veya yorum satırı yapın:
+            /* logger.LogInformation("Development environment. Applying database migrations...");
             try
             {
-                await dbContext.Database.MigrateAsync();
+                await dbContext.Database.MigrateAsync(); // <<< BU SATIR KALDIRILDI/YORUMLANDI
                 logger.LogInformation("Database migrations applied successfully.");
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "An error occurred while applying database migrations.");
-                // Geliştirme ortamında migration hatası olursa uygulamayı durdurmak isteyebilirsiniz.
-                throw; // Hatanın yukarıya fırlatılması
+                throw; 
             }
+            */
         }
         else
         {
-            logger.LogInformation("Non-development environment. Ensuring DB connection...");
-            bool dbExists = await dbContext.Database.CanConnectAsync();
-             if (!dbExists)
-             {
-                 logger.LogWarning("Database does not exist or cannot connect. Manual intervention or migration might be required.");
-                 // Gerekirse burada hata fırlatılabilir.
-                 // throw new InvalidOperationException("Database connection failed in non-development environment.");
-             }
+           // Production ortamı için değişiklik YOK. 
+           // Production'da EnsureDeletedAsync veya EnsureCreatedAsync KESİNLİKLE kullanılmamalıdır.
+           // Production veritabanı şeması manuel olarak veya kontrollü migration script'leri ile yönetilmelidir.
+           logger.LogInformation("Non-development environment. Ensuring DB connection...");
+           bool dbExists = await dbContext.Database.CanConnectAsync();
+            if (!dbExists)
+            {
+                logger.LogWarning("Database does not exist or cannot connect in non-development environment. Manual intervention or migration might be required.");
+                // Gerekirse hata fırlatılabilir.
+                // throw new InvalidOperationException("Database connection failed or schema needs setup in non-development environment.");
+            }
              else{
                  logger.LogInformation("Database connection successful.");
              }

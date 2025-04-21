@@ -29,12 +29,7 @@ namespace CleanArchitecture.Core.Features.Rooms.Commands.CreateRoom
             RuleFor(r => r.RoomCapacity)
                 .NotEmpty().WithMessage("{PropertyName} is required.")
                 .MaximumLength(50).WithMessage("{PropertyName} must not exceed 50 characters.");
-
-            RuleFor(r => r.Status)
-                .NotEmpty().WithMessage("{PropertyName} is required.")
-                .Must(s => s == "available" || s == "occupied" || s == "on maintenance")
-                .WithMessage("{PropertyName} must be one of: available, occupied, on maintenance.");
-
+            
             RuleFor(r => r.PricePerNight)
                 .NotEmpty().WithMessage("{PropertyName} is required.")
                 .GreaterThan(0).WithMessage("{PropertyName} must be greater than zero.");

@@ -1,40 +1,40 @@
-﻿using FluentValidation;
+﻿// File: Backend/CleanArchitecture/CleanArchitecture.Application/Features/Reservations/Commands/CreateReservation/CreateReservationCommandValidator.cs
+using FluentValidation;
 using System;
 
 namespace CleanArchitecture.Core.Features.Reservations.Commands.CreateReservation
 {
     public class CreateReservationCommandValidator : AbstractValidator<CreateReservationCommand>
     {
+        // ICustomerRepositoryAsync gibi bağımlılıklara gerek yoksa constructor kaldırılabilir.
+        // Şimdilik sadece temel kuralları kontrol ediyoruz.
         public CreateReservationCommandValidator()
         {
-            RuleFor(r => r.CustomerId)
-                .NotEmpty().WithMessage("{PropertyName} is required.")
-                .GreaterThan(0).WithMessage("{PropertyName} must be greater than zero.");
+            RuleFor(r => r.CustomerIdNumber) // CustomerId yerine IdNumber kontrolü
+                .NotEmpty().WithMessage("Müşteri kimlik numarası gereklidir.");
+            // Gerekirse burada IdNumber formatı için ek kurallar eklenebilir.
 
             RuleFor(r => r.RoomId)
-                .NotEmpty().WithMessage("{PropertyName} is required.")
-                .GreaterThan(0).WithMessage("{PropertyName} must be greater than zero.");
+                .NotEmpty().WithMessage("Oda ID'si gereklidir.")
+                .GreaterThan(0).WithMessage("Oda ID'si sıfırdan büyük olmalıdır.");
 
             RuleFor(r => r.StartDate)
-                .NotEmpty().WithMessage("{PropertyName} is required.")
-                .GreaterThanOrEqualTo(DateTime.Today).WithMessage("Start date cannot be in the past.");
+                .NotEmpty().WithMessage("Başlangıç tarihi gereklidir.")
+                .GreaterThanOrEqualTo(DateTime.Today).WithMessage("Başlangıç tarihi geçmiş bir tarih olamaz."); // Veya DateTime.UtcNow.Date
 
             RuleFor(r => r.EndDate)
-                .NotEmpty().WithMessage("{PropertyName} is required.")
-                .GreaterThan(r => r.StartDate).WithMessage("End date must be after start date.");
+                .NotEmpty().WithMessage("Bitiş tarihi gereklidir.")
+                .GreaterThan(r => r.StartDate).WithMessage("Bitiş tarihi başlangıç tarihinden sonra olmalıdır.");
 
             RuleFor(r => r.NumberOfGuests)
-                .NotEmpty().WithMessage("{PropertyName} is required.")
-                .GreaterThan(0).WithMessage("{PropertyName} must be greater than zero.");
+                .NotEmpty().WithMessage("Misafir sayısı gereklidir.")
+                .GreaterThan(0).WithMessage("Misafir sayısı sıfırdan büyük olmalıdır.");
 
             RuleFor(r => r.Price)
-                .NotEmpty().WithMessage("{PropertyName} is required.")
-                .GreaterThan(0).WithMessage("{PropertyName} must be greater than zero.");
+                .NotEmpty().WithMessage("Fiyat gereklidir.")
+                .GreaterThan(0).WithMessage("Fiyat sıfırdan büyük olmalıdır.");
 
-            RuleFor(r => r.Status)
-                .NotEmpty().WithMessage("{PropertyName} is required.")
-                .Must(s => s == "Pending" || s == "Checked-in" || s == "Completed" || s == "Cancelled")
-                .WithMessage("{PropertyName} must be one of: Pending, Checked-in, Completed, Cancelled.");
+            // Status alanı Command'dan kaldırıldığı için validator'da da kural yok.
         }
     }
 }

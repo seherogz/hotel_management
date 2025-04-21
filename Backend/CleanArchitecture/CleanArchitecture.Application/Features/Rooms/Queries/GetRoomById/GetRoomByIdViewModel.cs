@@ -1,4 +1,5 @@
-﻿using System;
+﻿// File: Backend/CleanArchitecture/CleanArchitecture.Application/Features/Rooms/Queries/GetRoomById/GetRoomByIdViewModel.cs
+using System;
 using System.Collections.Generic;
 
 namespace CleanArchitecture.Core.Features.Rooms.Queries.GetRoomById
@@ -11,12 +12,15 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetRoomById
         public int Floor { get; set; }
         public string Capacity { get; set; }
         public decimal PricePerNight { get; set; }
-        public string Status { get; set; }
+        public bool IsOnMaintenance { get; set; } // Bu alan var
+        public string ComputedStatus { get; set; } // Bu alan var
         public string Description { get; set; }
         public List<string> Features { get; set; } = new List<string>();
         public List<MaintenanceIssueViewModel> MaintenanceDetails { get; set; } = new List<MaintenanceIssueViewModel>();
+        public DateTime? StatusCheckDate { get; set; } // Bu alan var
     }
 
+    // MaintenanceIssueViewModel (Bu zaten vardı ve doğruydu)
     public class MaintenanceIssueViewModel
     {
         public int Id { get; set; }

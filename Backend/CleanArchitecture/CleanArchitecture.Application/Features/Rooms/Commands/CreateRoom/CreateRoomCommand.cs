@@ -6,19 +6,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace CleanArchitecture.Core.Features.Rooms.Commands.CreateRoom
 {
     public class CreateRoomCommand : IRequest<int>
     {
+        [Required]
         public int RoomNumber { get; set; }
+        [Required]
+        [MaxLength(50)]
         public string RoomType { get; set; }
+        [Required]
         public int Floor { get; set; }
+        [Required]
+        [MaxLength(20)]
         public string RoomCapacity { get; set; }
-        public string Status { get; set; }
+        // Status yok
+        [Required]
+        [Range(0.01, double.MaxValue)]
         public decimal PricePerNight { get; set; }
+        [MaxLength(500)]
         public string Description { get; set; }
-        public List<string> Features { get; set; }
+        public List<string> Features { get; set; } = new List<string>();
     }
 
     public class CreateRoomCommandHandler : IRequestHandler<CreateRoomCommand, int>

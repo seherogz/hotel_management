@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿// File: Backend/CleanArchitecture/CleanArchitecture.Application/Features/Rooms/Queries/GetAllRooms/GetAllRoomsViewModel.cs
+using System;
+using System.Collections.Generic;
 
 namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
 {
@@ -10,8 +12,10 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
         public int Floor { get; set; }
         public string Capacity { get; set; }
         public decimal PricePerNight { get; set; }
-        public string Status { get; set; }
+        public bool IsOnMaintenance { get; set; } // Bu alan var
+        public string ComputedStatus { get; set; } // Bu alan var
         public string Description { get; set; }
         public List<string> Features { get; set; } = new List<string>();
+        public DateTime? StatusCheckDate { get; set; } // Bu alan var
     }
 }

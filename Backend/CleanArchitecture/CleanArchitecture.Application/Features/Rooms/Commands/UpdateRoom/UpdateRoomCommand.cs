@@ -3,6 +3,7 @@ using CleanArchitecture.Core.Exceptions;
 using CleanArchitecture.Core.Interfaces.Repositories;
 using MediatR;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Threading;
 using System.Threading.Tasks;
 using CleanArchitecture.Core.Entities;
@@ -11,15 +12,26 @@ namespace CleanArchitecture.Core.Features.Rooms.Commands.UpdateRoom
 {
     public class UpdateRoomCommand : IRequest<int>
     {
-        public int Id { get; set; }
+        [Required]
+        public int Id { get; set; } // ID route'dan alınmalı, command içinde de olabilir.
+        [Required]
         public int RoomNumber { get; set; }
+        [Required]
+        [MaxLength(50)]
         public string RoomType { get; set; }
+        [Required]
         public int Floor { get; set; }
+        [Required]
+        [MaxLength(20)]
         public string RoomCapacity { get; set; }
-        public string Status { get; set; }
+        // Status yok
+        [Required]
+        [Range(0.01, double.MaxValue)]
         public decimal PricePerNight { get; set; }
+        [MaxLength(500)]
         public string Description { get; set; }
-        public List<string> Features { get; set; }
+        public List<string> Features { get; set; } = new List<string>();
+        public bool IsOnMaintenance { get; set; } // Bakım durumu API'dan güncellenebilir mi? Evet.
     }
 
     public class UpdateRoomCommandHandler : IRequestHandler<UpdateRoomCommand, int>
@@ -52,7 +64,6 @@ namespace CleanArchitecture.Core.Features.Rooms.Commands.UpdateRoom
             room.RoomType = request.RoomType;
             room.Floor = request.Floor;
             room.Capacity = request.RoomCapacity; // Change from RoomCapacity to Capacity
-            room.Status = request.Status;
             room.PricePerNight = request.PricePerNight;
             room.Description = request.Description;
 
