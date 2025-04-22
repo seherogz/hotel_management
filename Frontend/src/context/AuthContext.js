@@ -52,13 +52,18 @@ export const AuthProvider = ({ children }) => {
     
     try {
       // authService'i kullanarak giriş yap
-      const response = await authService.login(username, password);
+      const userData = await authService.login(username, password); // authService returns the user data directly
       
-      // Kullanıcı bilgilerini ayarla
-      setUser(response.user);
+      // Kullanıcı bilgilerini ayarla (userData zaten kullanıcı objesi)
+      setUser(userData); 
       setIsAuthenticated(true);
-      
-      return response;
+      // Kullanıcı bilgilerini localStorage'a kaydet (authService bunu zaten yapıyor ama burada da yapmak yedekli olmaz)
+      // Make sure authService saves the correct structure
+      localStorage.setItem('user', JSON.stringify(userData)); 
+      localStorage.setItem('token', userData.jwToken); // Ensure token is also saved here or in authService
+      localStorage.setItem('isAuthenticated', 'true'); // Ensure auth flag is set
+
+      return userData; // Return the user data
     } catch (err) {
       setError(err.message || 'Giriş başarısız');
       throw err;

@@ -5,7 +5,7 @@ const roomService = {
   // Get all rooms
   getAllRooms: async (params = {}) => {
     try {
-      const response = await apiClient.get('/room', { params });
+      const response = await apiClient.get('/v1/Room', { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching rooms:', error);
@@ -16,7 +16,7 @@ const roomService = {
   // Get available rooms
   getAvailableRooms: async (params = {}) => {
     try {
-      const response = await apiClient.get('/room/available', { params });
+      const response = await apiClient.get('/v1/Room/available', { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching available rooms:', error);
@@ -27,7 +27,7 @@ const roomService = {
   // Get room by ID
   getRoomById: async (id) => {
     try {
-      const response = await apiClient.get(`/room/${id}`);
+      const response = await apiClient.get(`/v1/Room/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching room with ID ${id}:`, error);
@@ -38,7 +38,7 @@ const roomService = {
   // Reserve a room
   reserveRoom: async (reservationData) => {
     try {
-      const response = await apiClient.post('/room/reserve', reservationData);
+      const response = await apiClient.post('/v1/Room/reserve', reservationData);
       return response.data;
     } catch (error) {
       console.error('Error reserving room:', error);
@@ -49,7 +49,7 @@ const roomService = {
   // Cancel a reservation
   cancelReservation: async (reservationData) => {
     try {
-      const response = await apiClient.post('/room/cancel-reservation', reservationData);
+      const response = await apiClient.post('/v1/Room/cancel-reservation', reservationData);
       return response.data;
     } catch (error) {
       console.error('Error cancelling reservation:', error);
@@ -60,7 +60,7 @@ const roomService = {
   // Update room maintenance status
   updateMaintenanceStatus: async (maintenanceData) => {
     try {
-      const response = await apiClient.post('/room/update-maintenance-status', maintenanceData);
+      const response = await apiClient.post('/v1/Room/update-maintenance-status', maintenanceData);
       return response.data;
     } catch (error) {
       console.error('Error updating maintenance status:', error);
@@ -71,7 +71,7 @@ const roomService = {
   // Get room amenities
   getRoomAmenities: async (roomId) => {
     try {
-      const response = await apiClient.get(`/room/${roomId}/amenities`);
+      const response = await apiClient.get(`/v1/Room/${roomId}/amenities`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching amenities for room ${roomId}:`, error);
@@ -82,7 +82,7 @@ const roomService = {
   // Get maintenance issues for a room
   getRoomMaintenanceIssues: async (roomId) => {
     try {
-      const response = await apiClient.get(`/room/${roomId}/maintenance-issues`);
+      const response = await apiClient.get(`/v1/Room/${roomId}/maintenance-issues`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching maintenance issues for room ${roomId}:`, error);

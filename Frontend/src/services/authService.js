@@ -1,3 +1,5 @@
+// src/services/authService.js
+
 import apiClient from './apiService';
 
 // Authentication service
@@ -9,40 +11,62 @@ const authService = {
         email: email,
         password: password
       });
-      
-      // Store token and user info in localStorage
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+
+      // Yanıt verisini (response.data) kontrol et
+      console.log("Login API Response Data:", response.data);
+
+      // Token ve kullanıcı bilgisini localStorage'a kaydet
+      // Eğer token ve roller doğrudan response.data içinde ise:
+      if (response.data && response.data.jwToken && response.data.roles) { // Token ve rollerın varlığını kontrol et
+        localStorage.setItem('token', response.data.jwToken); // Token'ı doğru alandan al
+
+        // ----- DEĞİŞİKLİK (Önceki adımdaki gibi) -----
+        // response.data.user yerine response.data objesinin tamamını 'user' olarak kaydet
+        localStorage.setItem('user', JSON.stringify(response.data));
+        // ---------------------
+
         localStorage.setItem('isAuthenticated', 'true');
+
+        // setUser için response.data'yı döndür (AuthContext bunu kullanabilir)
         return response.data;
+      } else {
+         // Eğer backend farklı bir yapı döndürüyorsa (örn: response.data.result.user)
+         // veya token/roller eksikse hata yönetimi yapılmalı
+         console.error('Login response is missing token or user data:', response.data);
+         // Belki backend'in döndürdüğü bir hata mesajı vardır
+         throw new Error(response.data?.message || 'Login failed: Invalid response structure');
       }
-      
-      return response.data;
+
     } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      console.error('Login error:', error.response?.data || error.message || error);
+      // Hata objesini veya mesajını fırlat
+      // Backend'den gelen hata mesajını önceliklendir
+      const errorMessage = error.response?.data?.message || error.message || 'Login error occurred';
+      throw new Error(errorMessage); // Hata mesajını fırlat
     }
   },
-  
+
   // Simplified register user method
   registerUserSimple: async (userData, autoLogin = false) => {
     try {
       // Send registration request with camelCase property names
       await apiClient.post('/Account/register', userData);
-      
+
       // If auto login is enabled, login with the new credentials
       if (autoLogin) {
+        // Login fonksiyonu artık tüm kullanıcı verisini döndürüyor
         await authService.login(userData.email, userData.password);
       }
-      
+
       return { succeeded: true };
     } catch (error) {
       console.error('Registration error:', error);
-      throw error;
+      // Backend'den gelen hata mesajını önceliklendir
+      const errorMessage = error.response?.data?.message || error.message || 'Registration error occurred';
+      throw new Error(errorMessage); // Hata mesajını fırlat
     }
   },
-  
+
   // Register a new user (admin only)
   registerUser: async (userData, autoLogin = false) => {
     try {
@@ -55,15 +79,15 @@ const authService = {
         password: userData.password,
         confirmPassword: userData.confirmPassword,
         // If roles is an array, keep it as is, otherwise convert to array
-        roles: Array.isArray(userData.roles) ? userData.roles : 
+        roles: Array.isArray(userData.roles) ? userData.roles :
                (userData.roles ? [userData.roles] : []),
         // Add origin parameter which backend might be expecting
         origin: window.location.origin
       };
-      
+
       // Log the request for debugging
       console.log('Register API request payload:', requestData);
-      
+
       // Try multiple approaches to cover different backend implementations
       let response;
       try {
@@ -86,105 +110,105 @@ const authService = {
               UserName: userData.userName,
               Password: userData.password,
               ConfirmPassword: userData.confirmPassword,
-              Roles: Array.isArray(userData.roles) ? userData.roles : 
+              Roles: Array.isArray(userData.roles) ? userData.roles :
                     (userData.roles ? [userData.roles] : []),
               Origin: window.location.origin
             });
           } catch (error3) {
             // All attempts failed, rethrow the original error
             console.error('All registration attempts failed');
-            throw error1;
+            throw error1; // Orijinal hatayı fırlat
           }
         }
       }
-      
+
       console.log('Register API response:', response.data);
-      
+
       // If autoLogin is true, authenticate the new user immediately
       if (autoLogin && response.data && response.data.succeeded) {
         try {
           // Auto-login with the new user credentials
+          // login fonksiyonu artık tüm kullanıcı verisini döndürüyor
           const loginResponse = await authService.login(userData.email, userData.password);
-          return { ...response.data, autoLoginSuccess: true, user: loginResponse.user, message: 'Kullanıcı başarıyla oluşturuldu ve giriş yapıldı' };
+          // loginResponse'un kendisi kullanıcı bilgilerini içeriyor olmalı
+          return { ...response.data, autoLoginSuccess: true, user: loginResponse, message: 'Kullanıcı başarıyla oluşturuldu ve giriş yapıldı' };
         } catch (loginError) {
           console.error('Auto-login after registration failed:', loginError);
-          return { ...response.data, autoLoginSuccess: false, message: 'Kullanıcı başarıyla oluşturuldu, fakat otomatik giriş yapılamadı' };
+          // loginError'dan gelen mesajı kullan
+          const autoLoginErrorMessage = loginError.message || 'Otomatik giriş yapılamadı';
+          return { ...response.data, autoLoginSuccess: false, message: `Kullanıcı başarıyla oluşturuldu, fakat otomatik giriş yapılamadı: ${autoLoginErrorMessage}` };
         }
       }
-      
-      return { ...response.data, message: 'Kullanıcı başarıyla oluşturuldu' };
+
+      // Sadece kayıt başarılı olduysa
+      if (response.data && response.data.succeeded) {
+         return { ...response.data, message: 'Kullanıcı başarıyla oluşturuldu' };
+      } else {
+         // Kayıt başarısızsa, backend'den gelen mesajı fırlat
+         throw new Error(response.data?.message || 'Kullanıcı kaydı başarısız oldu.');
+      }
+
     } catch (error) {
-      console.error('Register error:', error);
-      
-      // Handle different error response formats
+      console.error('Register error:', error.response?.data || error.message || error);
+
+      // Handle different error response formats for UI feedback
       if (error.response && error.response.data) {
-        // Try to normalize the error format for consistent handling in components
         const responseData = error.response.data;
-        
-        // Log the full error response for debugging
-        console.log('Error response status:', error.response.status);
-        console.log('Error response headers:', error.response.headers);
         console.log('Error response data:', JSON.stringify(responseData, null, 2));
-        
+
         if (typeof responseData === 'string') {
-          // If the response is just a string
-          error.normalizedError = {
-            message: responseData,
-            errors: [responseData]
-          };
+          error.normalizedError = { message: responseData, errors: [responseData] };
         } else if (responseData.message && !responseData.errors) {
-          // If there's a message but no errors array
-          error.normalizedError = {
-            message: responseData.message,
-            errors: [responseData.message]
-          };
+          error.normalizedError = { message: responseData.message, errors: [responseData.message] };
         } else if (responseData.errors && Array.isArray(responseData.errors)) {
-          // If errors is already an array
-          error.normalizedError = responseData;
+          error.normalizedError = responseData; // Assume structure is { message: '...', errors: [...] }
         } else if (responseData.errors && typeof responseData.errors === 'object') {
-          // If errors is an object with key-value pairs
-          const errorsArray = [];
-          Object.entries(responseData.errors).forEach(([key, value]) => {
-            if (Array.isArray(value)) {
-              errorsArray.push(...value);
-            } else {
-              errorsArray.push(value);
-            }
-          });
-          error.normalizedError = {
-            message: responseData.message || 'Doğrulama hatası',
-            errors: errorsArray
-          };
+          const errorsArray = Object.entries(responseData.errors).flatMap(([key, value]) =>
+            Array.isArray(value) ? value : [value]
+          );
+          error.normalizedError = { message: responseData.message || 'Doğrulama hatası', errors: errorsArray };
         } else {
-          // Default case
-          error.normalizedError = {
-            message: 'Kayıt işlemi başarısız',
-            errors: ['Bilinmeyen bir hata oluştu']
-          };
+          error.normalizedError = { message: responseData.message || 'Kayıt işlemi başarısız', errors: ['Bilinmeyen bir hata oluştu'] };
         }
+      } else {
+         // Error objesinin kendisi bir mesaj içeriyorsa onu kullan
+         error.normalizedError = { message: error.message || 'Kayıt işlemi başarısız', errors: [error.message || 'Bilinmeyen bir hata oluştu'] };
       }
-      
-      throw error;
+
+      throw error; // Hatayı fırlatmaya devam et
     }
   },
-  
+
   // Logout method
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('isAuthenticated');
   },
-  
+
   // Check if user is authenticated
   isAuthenticated: () => {
-    return !!localStorage.getItem('token');
+    // Token ve isAuthenticated flag'ini kontrol etmek daha güvenilir
+    const token = localStorage.getItem('token');
+    const authenticated = localStorage.getItem('isAuthenticated') === 'true';
+    return !!token && authenticated; // Hem token olmalı hem de flag true olmalı
   },
-  
+
   // Get current user
   getCurrentUser: () => {
     const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+    try {
+        // Eğer user verisi varsa ve geçerli bir JSON ise parse et
+        return user ? JSON.parse(user) : null;
+    } catch (e) {
+        console.error("Error parsing user data from localStorage", e);
+        // Hatalı veriyi temizle
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('isAuthenticated');
+        return null;
+    }
   }
 };
 
-export default authService; 
+export default authService;

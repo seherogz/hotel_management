@@ -77,6 +77,18 @@ namespace CleanArchitecture.Infrastructure.Services
 
         public async Task<string> RegisterAsync(RegisterRequest request, string origin)
         {
+            
+            var allowedRolesForRegistration = new List<string>
+            {
+                Roles.Receptionist.ToString(),
+                Roles.Accountant.ToString()
+            };
+
+            if (string.IsNullOrEmpty(request.Role) || !allowedRolesForRegistration.Contains(request.Role))
+            {
+                throw new ValidationException($"Invalid role specified. Allowed roles are: {string.Join(", ", allowedRolesForRegistration)}");
+            }
+            
             var userWithSameUserName = await _userManager.FindByNameAsync(request.UserName);
             if (userWithSameUserName != null)
             {
@@ -95,7 +107,7 @@ namespace CleanArchitecture.Infrastructure.Services
                 var result = await _userManager.CreateAsync(user, request.Password);
                 if (result.Succeeded)
                 {
-                    await _userManager.AddToRoleAsync(user, Roles.Receptionist.ToString());
+                    await _userManager.AddToRoleAsync(user, request.Role);
                     var verificationUri = await SendVerificationEmail(user, origin);
                     //TODO: Attach Email Service here and configure it via appsettings
                     //await _emailService.SendAsync(new Core.DTOs.Email.EmailRequest() { From = "mail@codewithmukesh.com", To = user.Email, Body = $"Please confirm your account by visiting this URL {verificationUri}", Subject = "Confirm Registration" });
