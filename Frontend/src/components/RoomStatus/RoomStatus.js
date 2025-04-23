@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FaTable, 
-  FaCalendarAlt, 
-  FaSync, 
-  FaFilter,
-  FaExclamationTriangle,
-  FaSearch,
-  FaCalendar,
-  FaList
+import {
+    FaTable,
+    FaCalendarAlt,
+    FaSync,
+    FaFilter,
+    FaExclamationTriangle,
+    FaSearch,
+    FaCalendar,
+    FaList
 } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
@@ -118,10 +118,10 @@ const mockRooms = [
 const RoomStatusPage = () => {
   const [rooms, setRooms] = useState([]);
   const [filteredRooms, setFilteredRooms] = useState([]);
-  const [activeView, setActiveView] = useState('card');
+  const [activeView, setActiveView] = useState('card'); // Bu state kullanılıyor mu? Aşağıda viewMode var.
   const [roomNumberSearch, setRoomNumberSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [startDate, setStartDate] = useState(new Date());
+  const [startDate, setStartDate] = useState(null); // Başlangıçta null olabilir
   const [endDate, setEndDate] = useState(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
@@ -132,18 +132,166 @@ const RoomStatusPage = () => {
   const [showReservationForm, setShowReservationForm] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'calendar'
 
+  // Tarih string'ini ('dd.MM.yyyy' veya ISO) Date objesine çeviren yardımcı fonksiyon
+  const parseDateString = (dateStr) => {
+      if (!dateStr) return null;
+      if (dateStr instanceof Date) return dateStr; // Zaten Date objesi ise döndür
+
+      try {
+          // ISO formatını dene (YYYY-MM-DDTHH:mm:ssZ)
+          let parsedDate = new Date(dateStr);
+          if (!isNaN(parsedDate.getTime())) {
+              return parsedDate;
+          }
+
+          // 'dd.MM.yyyy' formatını dene
+          const parts = dateStr.split('.');
+          if (parts.length === 3) {
+              const day = parseInt(parts[0], 10);
+              const month = parseInt(parts[1], 10) - 1; // Ay 0'dan başlar
+              const year = parseInt(parts[2], 10);
+              if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+                  parsedDate = new Date(year, month, day);
+                  if (!isNaN(parsedDate.getTime())) {
+                     return parsedDate;
+                  }
+              }
+          }
+      } catch(e) {
+          console.error("Tarih ayrıştırma hatası (parseDateString):", dateStr, e);
+      }
+
+      console.warn("Geçersiz veya tanınmayan tarih formatı:", dateStr);
+      return null; // Tanınmayan formatlar için null döndür
+  };
+
+  // Backend'den gelen durum değerlerini frontend için kullanılan değerlere dönüştür
+  const mapStatusFromBackend = (status) => {
+      const lowerCaseStatus = status ? status.toLowerCase() : 'available';
+      const statusMap = {
+          'available': 'Available',
+          'occupied': 'Occupied', // Backend'den gelirse
+          'maintenance': 'Under Maintenance', // Backend 'Maintenance' döndürüyor
+          'cleaning': 'Cleaning', // Varsa
+      };
+      return statusMap[lowerCaseStatus] || 'Available'; // Bilinmeyen durumlar için varsayılan
+  };
+
+  // API'den gelen özellikleri uygun formata dönüştür (Dizi döndürmeli)
+  const parseFeatures = (features) => {
+      if (!features) return []; // Boş veya null ise boş dizi döndür
+      if (Array.isArray(features)) {
+          return features; // Zaten dizi ise direkt döndür
+      }
+      // String gelirse (JSON veya virgülle ayrılmış olabilir)
+      if (typeof features === 'string') {
+          try {
+              // JSON string ise parse etmeyi dene
+              const parsed = JSON.parse(features);
+              return Array.isArray(parsed) ? parsed : [];
+          } catch (e) {
+              // Virgülle ayrılmışsa split etmeyi dene
+              if (features.includes(',')) {
+                  return features.split(',').map(f => f.trim()).filter(f => f);
+              }
+              // Tek bir özellikse diziye çevir
+              return features.trim() ? [features.trim()] : [];
+          }
+      }
+      console.warn("Beklenmedik features formatı, boş dizi döndürülüyor:", features);
+      return []; // Diğer tipler için boş dizi
+  };
+
+   // Tarih formatlama (dd.MM.yyyy)
+   const formatDate = (date) => {
+    if (!date) return '';
+    const d = parseDateString(date); // Önce Date objesine çevir
+    if (!d || isNaN(d.getTime())) {
+        return ''; // Geçersiz tarihse boş döndür
+    }
+    try {
+        return d.toLocaleDateString('tr-TR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    } catch (e) {
+        console.error("Tarih formatlama hatası (formatDate):", date, e);
+        return ''; // Hata durumunda boş döndür
+    }
+  };
+
+
+  // Backend'den gerçek veri çeken fonksiyon (DÜZELTİLMİŞ)
+  const loadRoomsFromBackend = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // API yanıtını alıyoruz. Bu değişken API'den dönen TÜM nesneyi tutuyor: { pageNumber: ..., data: [...] }
+      const roomsData = await roomService.getAllRooms(); // Orijinal değişken adını KULLANIYORUZ
+
+      // *** ANA DÜZELTME: roomsData NESNESİNİN İÇİNDEKİ 'data' DİZİSİNİ KULLAN ***
+      // roomsData'nın ve roomsData.data'nın varlığını ve dizi olduğunu kontrol et
+      if (roomsData && Array.isArray(roomsData.data)) {
+        const formattedRooms = roomsData.data.map(room => { // <<< .data EKLENDİ
+          // API'den gelen 'room' nesnesini frontend formatına dönüştür
+          return {
+             id: room.id || room._id,
+             roomNumber: String(room.roomNumber) || '', // String olduğundan emin ol
+             capacity: `${room.capacity || 'Bilinmiyor'} Kişilik`,
+             status: mapStatusFromBackend(room.computedStatus), // API'den gelen 'computedStatus'
+             features: parseFeatures(room.features), // Bu fonksiyonun dizi döndürdüğünden emin ol
+             pricePerNight: room.pricePerNight || 0,
+             imageUrl: room.imageUrl || null,
+             // Not: API yanıtında guest yok. API dolu odalar için guest döndürmeli
+             guest: room.guest ? {
+                 name: room.guest.name,
+                 checkInDate: formatDate(room.guest.checkInDate), // formatDate kullanılıyor
+                 checkOutDate: formatDate(room.guest.checkOutDate) // formatDate kullanılıyor
+              } : null,
+             maintenance: room.isOnMaintenance ? { // API'deki 'isOnMaintenance' boolean değerine göre
+                 issue: room.description && room.description !== 'none' ? room.description : 'Bakımda',
+                 estimatedCompletionDate: 'Bilinmiyor' // API'de yoksa
+             } : null,
+             // Diğer bilgiler
+             roomType: room.roomType,
+             description: room.description,
+          };
+        });
+
+        setRooms(formattedRooms);
+        setFilteredRooms(formattedRooms);
+      } else {
+         // API'den beklenen format gelmediyse veya data dizisi yoksa
+         console.error("API'den geçersiz veri yapısı alındı veya 'data' alanı bulunamadı:", roomsData);
+         throw new Error('Oda verileri alınırken beklenmedik bir formatla karşılaşıldı.');
+      }
+      // *** DÜZELTMELER SONU ***
+
+    } catch (err) {
+      // Hata yakalama bloğu
+      console.error('Odalar yüklenirken hata:', err);
+      // Hata mesajını state'e kaydet (kullanıcıya göstermek için)
+      const errorMessage = err.message || 'Odalar yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
+      setError(errorMessage);
+      setRooms([]); // Hata durumunda odaları temizle
+      setFilteredRooms([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
   // Backend API'dan verileri çekmek için useEffect kullan
   useEffect(() => {
-    // Test ortamında mı yoksa gerçek API'ye mi bağlanacağımızı kontrol et
-    // Not: Gerçek bir projede, API'ye bağlanma mantığı daha sağlam olmalı
-    // ve mock data kullanımı geliştirme/test aşamaları için olmalı.
-    const useMockData = process.env.REACT_APP_USE_MOCK_DATA === 'true'; 
-    
+    // Mock data kullanılıp kullanılmayacağını belirle (opsiyonel)
+    const useMockData = process.env.REACT_APP_USE_MOCK_DATA === 'true';
+
     if (useMockData) {
-      // Mock veri kullan
+      // Mock veri kullan (test için)
       const loadMockData = () => {
         setIsLoading(true);
-        // Simulate API delay
         setTimeout(() => {
           setRooms(mockRooms);
           setFilteredRooms(mockRooms);
@@ -155,198 +303,92 @@ const RoomStatusPage = () => {
       // Gerçek backend API'sine bağlan
       loadRoomsFromBackend();
     }
-  }, []);
+  }, []); // Sadece component mount olduğunda çalışır
 
-  // Backend'den gerçek veri çeken fonksiyon
-  const loadRoomsFromBackend = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // roomService'i kullanarak odaları çek
-      // Not: roomService.getAllRooms backend API endpoint'ine göre ayarlanmalıdır.
-      // Eğer spesifik bir endpoint varsa (örn: /room/status) onu kullanın.
-      const roomsData = await roomService.getAllRooms(); // Veya uygun olan fonksiyon
-      
-      // Backend'den gelen verileri frontend formatına dönüştür
-      const formattedRooms = roomsData.map(room => {
-        // Burada API'den gelen veriyi frontend'in ihtiyaç duyduğu formata dönüştür
-        return {
-          id: room.id || room._id, // Backend'in ID formatına göre ayarlayın (id veya _id)
-          roomNumber: room.roomNumber || '',
-          capacity: `${room.capacity || 'Bilinmiyor'} Kişilik`, // Varsayılan değer eklendi
-          status: mapStatusFromBackend(room.status),
-          features: parseFeatures(room.features),
-          pricePerNight: room.pricePerNight || 0,
-          imageUrl: room.imageUrl || null, // Varsayılan resim RoomCard'da ele alınacak
-          guest: room.guest ? {
-            name: room.guest.name,
-            // Tarih formatlaması API'den gelen formata göre ayarlanmalı
-            checkInDate: formatDate(room.guest.checkInDate), 
-            checkOutDate: formatDate(room.guest.checkOutDate)
-          } : null,
-          maintenance: room.maintenance ? {
-            issue: room.maintenance.issue,
-            estimatedCompletionDate: formatDate(room.maintenance.estimatedCompletionDate)
-          } : null
-        };
-      });
-      
-      setRooms(formattedRooms);
-      setFilteredRooms(formattedRooms);
-    } catch (err) {
-      console.error('Odalar yüklenirken hata:', err);
-      setError('Odalar yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
-      // Hata durumunda belki boş liste göstermek veya mock veriye dönmek daha iyi olabilir
-      setRooms([]); // Boş liste göster
-      setFilteredRooms([]);
-      // setRooms(mockRooms); // Alternatif: Mock verileri göster
-      // setFilteredRooms(mockRooms);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Backend'den gelen durum değerlerini frontend için kullanılan değerlere dönüştür
-  const mapStatusFromBackend = (status) => {
-    // Backend'den gelen status değerlerini küçük harfe çevirerek karşılaştırma yap
-    const lowerCaseStatus = status ? status.toLowerCase() : 'available'; // null/undefined kontrolü
-    const statusMap = {
-      'available': 'Available',
-      'occupied': 'Occupied',
-      'maintenance': 'Under Maintenance',
-      'cleaning': 'Cleaning', // Örnek ek durum
-      // Diğer olası durumlar için burada haritalandırma ekleyebilirsiniz
-    };
-    return statusMap[lowerCaseStatus] || 'Available'; // Bilinmeyen durumlar için varsayılan
-  };
-  
-  // API'den gelen özellikleri uygun formata dönüştür
-  const parseFeatures = (features) => {
-    // Varsayılan boş dizi döndür
-    if (!features) return []; 
-    
-    // Eğer features bir string ise JSON olarak parse etmeyi dene
-    if (typeof features === 'string') {
-      try {
-        // JSON.parse güvenli değilse, daha güvenli bir ayrıştırma yöntemi kullanın
-        const parsed = JSON.parse(features);
-        return Array.isArray(parsed) ? parsed : features.split(',').map(f => f.trim());
-      } catch (e) {
-        // Parse edilemezse virgülle ayrılmış string olarak kabul et
-        return features.split(',').map(f => f.trim()).filter(f => f); // Boş elemanları filtrele
-      }
-    }
-    
-    // Zaten dizi ise direkt döndür
-    if (Array.isArray(features)) {
-      return features;
-    }
-    
-    // Diğer durumlar için boş dizi döndür
-    return [];
-  };
 
-  // Apply filters when any filter changes
+  // Filtreleme mantığı (Bu kısım API'den gelen veriye göre güncellenmeli)
   useEffect(() => {
     const applyFilters = () => {
-      let filtered = [...rooms];
+      let filtered = [...rooms]; // Filtrelemeye başlamadan önce tüm odaları al
 
-      // Room number filter (Case-insensitive)
+      // Oda Numarası Filtresi (Büyük/küçük harf duyarsız)
       if (roomNumberSearch) {
-        filtered = filtered.filter(room => 
+        filtered = filtered.filter(room =>
           room.roomNumber.toLowerCase().includes(roomNumberSearch.toLowerCase())
         );
       }
 
-      // Status filter
+      // Durum Filtresi
       if (statusFilter) {
-        filtered = filtered.filter(room => 
-          room.status === statusFilter
+        filtered = filtered.filter(room =>
+          room.status === statusFilter // Frontend formatındaki 'status' ile karşılaştır
         );
       }
 
-      // Date range filter (Bu kısım backend'den filtrelenmiş veri istemeli)
-      // Frontend'de tarih filtrelemesi karmaşık ve eksik olabilir. 
-      // İdeal olarak, tarih aralığı backend'e gönderilip uygun odalar alınmalı.
-      // Aşağıdaki filtreleme sadece basit bir örnektir ve tüm durumları kapsamaz.
+      // Tarih Aralığı Filtresi (Frontend filtrelemesi sınırlıdır, backend daha iyi)
+      // Bu kısım sadece 'Available' odaları veya konaklaması çakışmayan 'Occupied' odaları gösterir
       if (startDate && endDate) {
         console.warn("Tarih filtrelemesi frontend'de yapılıyor. Backend filtrelemesi önerilir.");
-        // Örnek: Müsait odaları veya belirtilen tarih aralığı dışında kalan dolu odaları filtrele
+        const filterStart = new Date(startDate.setHours(0, 0, 0, 0));
+        const filterEnd = new Date(endDate.setHours(23, 59, 59, 999));
+
         filtered = filtered.filter(room => {
           if (room.status === 'Available') return true; // Müsaitse her zaman göster
           if (room.status === 'Occupied' && room.guest) {
-              try {
-                  // Tarihleri Date objesine çevirirken hata kontrolü yap
-                  const guestCheckIn = parseDateString(room.guest.checkInDate);
-                  const guestCheckOut = parseDateString(room.guest.checkOutDate);
-                  const filterStart = new Date(startDate.setHours(0, 0, 0, 0));
-                  const filterEnd = new Date(endDate.setHours(23, 59, 59, 999));
+              const guestCheckIn = parseDateString(room.guest.checkInDate); // dd.MM.yyyy -> Date
+              const guestCheckOut = parseDateString(room.guest.checkOutDate); // dd.MM.yyyy -> Date
 
-                  if (!guestCheckIn || !guestCheckOut) return false; // Geçersiz misafir tarihleri
+              if (!guestCheckIn || !guestCheckOut) return false; // Geçersiz misafir tarihleri
 
-                  // Eğer misafirin konaklaması filtre aralığıyla çakışmıyorsa göster
-                  return guestCheckOut <= filterStart || guestCheckIn >= filterEnd;
-              } catch (e) {
-                  console.error("Tarih ayrıştırma hatası:", e);
-                  return false; // Hata durumunda gösterme
-              }
+              // Konaklama aralığı filtre aralığı ile çakışıyor mu?
+              const overlaps = (guestCheckIn < filterEnd) && (guestCheckOut > filterStart);
+              return !overlaps; // Çakışmıyorsa göster (yani oda o tarihlerde uygun)
           }
-          return false; // Diğer durumlar (Bakımda vb.) tarih filtresinden etkilenmez
+          // Diğer durumlar (Bakımda vb.) tarih filtresinden etkilenmez (şimdilik)
+          if(room.status === 'Under Maintenance') return true;
+
+          return false; // Belirsiz durumlar veya geçersiz veri
         });
       }
 
-      // Features filter
+      // Özellik Filtresi
       if (selectedFeatures.length > 0) {
-        filtered = filtered.filter(room => 
-          selectedFeatures.every(feature => 
+        filtered = filtered.filter(room =>
+          selectedFeatures.every(feature =>
             Array.isArray(room.features) && room.features.includes(feature)
           )
         );
       }
 
-      setFilteredRooms(filtered);
+      setFilteredRooms(filtered); // Filtrelenmiş sonuçları state'e yaz
     };
 
-    applyFilters();
-  }, [rooms, roomNumberSearch, statusFilter, startDate, endDate, selectedFeatures]);
+    // rooms veya filtreler değiştiğinde filtrelemeyi uygula
+     if (!isLoading) { // Sadece yükleme bittikten sonra filtrele
+         applyFilters();
+     }
+  }, [rooms, roomNumberSearch, statusFilter, startDate, endDate, selectedFeatures, isLoading]); // isLoading dependency eklendi
 
-  // Tarih string'ini ('dd.MM.yyyy') Date objesine çeviren yardımcı fonksiyon
-  const parseDateString = (dateStr) => {
-      if (!dateStr || typeof dateStr !== 'string') return null;
-      const parts = dateStr.split('.');
-      if (parts.length === 3) {
-          const day = parseInt(parts[0], 10);
-          const month = parseInt(parts[1], 10) - 1; // Ay 0'dan başlar
-          const year = parseInt(parts[2], 10);
-          if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-              return new Date(year, month, day);
-          }
-      }
-      // Alternatif formatları veya Date.parse'ı deneyebilirsiniz
-      const parsedDate = new Date(dateStr); 
-      return !isNaN(parsedDate.getTime()) ? parsedDate : null;
-  };
 
   const handleRefresh = () => {
-    // Gerçek API'den verileri yeniden yükle
+    // Verileri backend'den yeniden yükle
     loadRoomsFromBackend();
   };
 
   const handleReserve = (room) => {
-    // Rezervasyon formunu göster ve seçilen odayı ayarla
+    // Rezervasyon formunu göster
     setSelectedRoom(room);
     setShowReservationForm(true);
   };
 
   const handleViewDetails = (room) => {
-    // Modalı göster ve seçilen odayı ayarla
+    // Detay modalını göster
     setSelectedRoom(room);
     setShowModal(true);
   };
 
   const handleCloseModal = () => {
-    // Modalı kapat
+    // Detay modalını kapat
     setShowModal(false);
     setSelectedRoom(null);
   };
@@ -357,56 +399,58 @@ const RoomStatusPage = () => {
     setSelectedRoom(null);
   };
 
-  const handleCancelReservation = async (room) => { // async yapıldı
+  const handleCancelReservation = async (room) => {
+    // Rezervasyon iptali (API çağrısı gerekiyor)
+    // Bu fonksiyonun API bağlantısı eklenmeli (roomService.cancelReservation)
     if (!room || !room.guest || !room.guest.reservationId) {
         alert('İptal edilecek geçerli bir rezervasyon bulunamadı.');
         return;
     }
 
     if (window.confirm(`${room.roomNumber} numaralı odanın rezervasyonunu (ID: ${room.guest.reservationId}) iptal etmek istediğinize emin misiniz?`)) {
-      setIsLoading(true); // Yükleniyor durumunu başlat
+      setIsLoading(true);
       setError(null);
       try {
-        // Backend API'sini çağır
-        // Backend'in beklediği payload'ı ayarlayın (örn: sadece reservationId)
-        await roomService.cancelReservation({ reservationId: room.guest.reservationId }); 
+        // Backend API'sini çağır (roomService.js'de tanımlanmalı)
+        await roomService.cancelReservation({ reservationId: room.guest.reservationId });
 
         alert(`${room.roomNumber} numaralı oda rezervasyonu başarıyla iptal edildi.`);
-        handleCloseModal(); // Detay modalını kapat
+        handleCloseModal();
         handleRefresh(); // Listeyi yenile
 
       } catch (err) {
-        console.error('Rezervasyon iptal edilirken hata:', err);
-        setError('Rezervasyon iptal edilirken bir hata oluştu. Lütfen tekrar deneyin.');
-        alert('Rezervasyon iptal edilirken bir hata oluştu.');
+        console.error('Rezervasyon iptal edilirken hata:', err.response?.data || err.message);
+        const cancelError = err.response?.data?.message || 'Rezervasyon iptal edilirken bir hata oluştu.';
+        setError(cancelError);
+        alert(cancelError);
       } finally {
-        setIsLoading(false); // Yükleniyor durumunu bitir
+        setIsLoading(false);
       }
     }
   };
 
-  // --- BACKEND BAĞLANTILI handleCreateReservation ---
-  const handleCreateReservation = async (reservationData) => { // Fonksiyonu async yapın
+  // Rezervasyon Oluşturma (API bağlantılı)
+  const handleCreateReservation = async (reservationData) => {
     if (!selectedRoom) {
       console.error("Rezervasyon için oda seçilmedi.");
       alert("Bir hata oluştu, lütfen tekrar deneyin.");
       return;
     }
-  
+
     // Backend'e gönderilecek veriyi hazırla
     const payload = {
-      roomId: selectedRoom.id, // Backend'in beklediği oda ID'si alanı (örn: "60d5ecb8b48f4f001f9e8f8f")
-      guestName: reservationData.fullName, // Backend'in beklediği misafir adı alanı
-      checkInDate: reservationData.checkInDate, // Backend'in beklediği giriş tarihi formatı (örn: "YYYY-MM-DD" veya ISO)
-      checkOutDate: reservationData.checkOutDate, // Backend'in beklediği çıkış tarihi formatı (örn: "YYYY-MM-DD" veya ISO)
-      phoneNumber: reservationData.phoneNumber || null, // Backend null kabul ediyorsa
-      // Backend'in beklediği diğer alanları buraya ekleyebilirsiniz (örn: email, numberOfGuests)
+      roomId: selectedRoom.id, // Backend oda ID'sini bekler
+      guestName: reservationData.fullName,
+      // Tarihleri backend'in beklediği formata çevir (örn: YYYY-MM-DD)
+      checkInDate: '', // Aşağıda formatlanacak
+      checkOutDate: '', // Aşağıda formatlanacak
+      phoneNumber: reservationData.phoneNumber || null,
+      // Backend'in beklediği diğer alanlar...
     };
 
-    // Tarih formatını backend'in beklediği formata çevirme (Örnek: YYYY-MM-DD)
-    const formatDateForBackend = (dateStr) => {
-        if (!dateStr) return null;
-        const dateObj = parseDateString(dateStr); // 'dd.MM.yyyy' -> Date objesi
+    // Tarih formatını backend için ayarla (YYYY-MM-DD)
+    const formatDateForBackend = (dateStr) => { // dateStr 'dd.MM.yyyy' formatında
+        const dateObj = parseDateString(dateStr); // Önce Date objesine çevir
         if (!dateObj) return null;
         const year = dateObj.getFullYear();
         const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
@@ -414,85 +458,47 @@ const RoomStatusPage = () => {
         return `${year}-${month}-${day}`; // YYYY-MM-DD formatı
     };
 
-    payload.checkInDate = formatDateForBackend(payload.checkInDate);
-    payload.checkOutDate = formatDateForBackend(payload.checkOutDate);
+    payload.checkInDate = formatDateForBackend(reservationData.checkInDate);
+    payload.checkOutDate = formatDateForBackend(reservationData.checkOutDate);
 
-    // Eğer formatlama başarısız olduysa veya tarihler geçerli değilse işlemi durdur
     if (!payload.checkInDate || !payload.checkOutDate) {
         alert('Geçersiz tarih formatı. Lütfen tarihleri kontrol edin.');
         return;
     }
-  
-    setIsLoading(true); // Yükleniyor durumunu başlat
-    setError(null); // Hata durumunu sıfırla
-  
+
+    setIsLoading(true);
+    setError(null);
+
     try {
       // roomService üzerinden backend API'sini çağır
       const response = await roomService.reserveRoom(payload);
-  
-      // Başarılı yanıt alındıysa (Backend'den dönen yanıtı kontrol edebilirsiniz)
-      console.log("Rezervasyon Yanıtı:", response); // Backend'den gelen yanıtı logla
+
+      console.log("Rezervasyon Yanıtı:", response);
       alert(`${selectedRoom.roomNumber} numaralı oda için rezervasyon başarıyla oluşturuldu.`);
-      
-      // Formu kapat
       handleCloseReservationForm();
-      
-      // Oda listesini güncellemek için verileri yeniden çek
-      handleRefresh(); // handleRefresh fonksiyonu zaten backend'den veri çekiyor
-  
+      handleRefresh(); // Oda listesini güncelle
+
     } catch (err) {
-      // Hata durumunda kullanıcıyı bilgilendir
-      console.error('Rezervasyon oluşturulurken hata:', err.response?.data || err.message); // Daha detaylı hata loglama
-      // Backend'den gelen spesifik hata mesajını göstermeyi deneyin
-      const errorMessage = err.response?.data?.message || 'Rezervasyon oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.';
-      setError(errorMessage);
-      alert(errorMessage);
+      console.error('Rezervasyon oluşturulurken hata:', err.response?.data || err.message);
+      const createError = err.response?.data?.message || 'Rezervasyon oluşturulurken bir hata oluştu.';
+      setError(createError);
+      alert(createError);
     } finally {
-      setIsLoading(false); // Yükleniyor durumunu bitir
+      setIsLoading(false);
     }
   };
-  // --- BACKEND BAĞLANTILI handleCreateReservation SONU ---
 
 
   const handleFeatureSelect = (feature) => {
-    const updatedFeatures = selectedFeatures.includes(feature) 
+    // Seçili özellikleri güncelle
+    const updatedFeatures = selectedFeatures.includes(feature)
       ? selectedFeatures.filter(f => f !== feature)
       : [...selectedFeatures, feature];
-    
     setSelectedFeatures(updatedFeatures);
   };
 
-  const formatDate = (date) => {
-    // Backend'den gelen tarih formatına göre esnek olmalı
-    if (!date) return '';
-    
-    try {
-      const d = new Date(date); // ISO formatı veya Date objesi varsayımı
-      if (isNaN(d.getTime())) {
-         // Eğer 'dd.MM.yyyy' formatındaysa parse etmeyi dene
-         const parsed = parseDateString(date); 
-         if (parsed && !isNaN(parsed.getTime())) {
-             return parsed.toLocaleDateString('tr-TR', {
-                 day: '2-digit',
-                 month: '2-digit',
-                 year: 'numeric'
-             });
-         }
-         return date; // Geçerli bir tarih değilse veya parse edilemezse olduğu gibi döndür
-      }
-      
-      return d.toLocaleDateString('tr-TR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch (e) {
-        console.error("Tarih formatlama hatası:", date, e);
-        return date; // Hata durumunda orijinal değeri döndür
-    }
-  };
 
-  // Render loading spinner
+  // Yükleniyor durumu render fonksiyonu
   const renderLoading = () => (
     <div className={styles.loadingContainer}>
       <div className={styles.spinner}></div>
@@ -500,44 +506,43 @@ const RoomStatusPage = () => {
     </div>
   );
 
-  // Render error message
+  // Hata mesajı render fonksiyonu
   const renderError = () => (
-    // Hata mesajı sadece error state'i doluysa gösterilir
     error && (
         <div className={styles.errorMessage}>
         <FaExclamationTriangle className={styles.errorIcon} />
-        {error}
+        {error} {/* State'deki hata mesajını göster */}
         </div>
     )
   );
 
   return (
-    <MainLayout title="Oda Durumu"> {/* Türkçe başlık */}
+    <MainLayout title="Oda Durumu">
       <div className={styles.roomStatusPage}>
         <div className={styles.controlsContainer}>
           {/* Görünüm Seçenekleri */}
           <div className={styles.viewControls}>
-            <button 
+            <button
               className={`${styles.viewButton} ${viewMode === 'list' ? styles.active : ''}`}
               onClick={() => setViewMode('list')}
-              title="Liste Görünümü" // Tooltip eklendi
+              title="Liste Görünümü"
             >
-              <FaList /> Liste Görünümü {/* Türkçe etiket */}
+              <FaList /> Liste Görünümü
             </button>
-            <button 
+            <button
               className={`${styles.viewButton} ${viewMode === 'calendar' ? styles.active : ''}`}
               onClick={() => setViewMode('calendar')}
-              title="Takvim Görünümü" // Tooltip eklendi
+              title="Takvim Görünümü"
             >
-              <FaCalendar /> Takvim Görünümü {/* Türkçe etiket */}
+              <FaCalendar /> Takvim Görünümü
             </button>
           </div>
           {/* Yenile Butonu */}
-          <button 
+          <button
             className={styles.refreshButton}
             onClick={handleRefresh}
             disabled={isLoading}
-            title="Oda listesini yenile" // Tooltip eklendi
+            title="Oda listesini yenile"
           >
             <FaSync className={`${styles.viewIcon} ${isLoading ? styles.spinning : ''}`} /> YENİLE
           </button>
@@ -548,16 +553,16 @@ const RoomStatusPage = () => {
         </div>
 
         {/* Hata Mesajı Alanı */}
-        {renderError()}
+        {renderError()} {/* Hata mesajını burada render et */}
 
         {/* Filtreleme Alanı */}
         <div className={styles.searchFilters}>
           <div className={styles.filterHeader}>
-            <div className={styles.filterTitle}>Filtrele & Ara</div> {/* Başlık güncellendi */}
-            <button 
+            <div className={styles.filterTitle}>Filtrele & Ara</div>
+            <button
               className={styles.filtersButton}
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              title="Gelişmiş filtreleri göster/gizle" // Tooltip eklendi
+              title="Gelişmiş filtreleri göster/gizle"
             >
               <FaFilter /> {showAdvancedFilters ? 'FİLTRELERİ GİZLE' : 'GELİŞMİŞ FİLTRELER'}
             </button>
@@ -567,24 +572,24 @@ const RoomStatusPage = () => {
           <div className={styles.searchInputContainer}>
             <div className={styles.inputGroup}>
               <label htmlFor="roomNumberSearch" className={styles.inputLabel}>Oda Numarası Ara</label>
-              <input 
-                id="roomNumberSearch" // htmlFor ile eşleşen id
-                type="text" 
+              <input
+                id="roomNumberSearch"
+                type="text"
                 className={styles.inputField}
                 value={roomNumberSearch}
                 onChange={(e) => setRoomNumberSearch(e.target.value)}
-                placeholder="Oda No..." // Placeholder kısaltıldı
+                placeholder="Oda No..."
               />
             </div>
             <div className={styles.inputGroup}>
               <label htmlFor="statusFilter" className={styles.inputLabel}>Durum Filtresi</label>
-              <select 
-                id="statusFilter" // htmlFor ile eşleşen id
+              <select
+                id="statusFilter"
                 className={styles.selectField}
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <option value="">Tüm Durumlar</option> {/* Daha açıklayıcı */}
+                <option value="">Tüm Durumlar</option>
                 <option value="Available">Müsait</option>
                 <option value="Occupied">Dolu</option>
                 <option value="Under Maintenance">Bakımda</option>
@@ -598,7 +603,7 @@ const RoomStatusPage = () => {
             <div className={styles.advancedFilters}>
               <div className={styles.dateGroup}>
                 <label className={styles.inputLabel}>Tarih Aralığı (Müsaitlik Kontrolü İçin)</label>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}> {/* Wrap eklendi */}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <DatePicker
                     selected={startDate}
                     onChange={(date) => setStartDate(date)}
@@ -609,6 +614,7 @@ const RoomStatusPage = () => {
                     placeholderText="Başlangıç Tarihi"
                     className={styles.inputField}
                     minDate={new Date()} // Geçmiş tarih seçilemez
+                    isClearable // Tarihi temizleme butonu
                   />
                   <DatePicker
                     selected={endDate}
@@ -616,23 +622,24 @@ const RoomStatusPage = () => {
                     selectsEnd
                     startDate={startDate}
                     endDate={endDate}
-                    minDate={startDate || new Date()} // Başlangıçtan önceki tarih seçilemez
+                    minDate={startDate || new Date()}
                     dateFormat="dd.MM.yyyy"
                     placeholderText="Bitiş Tarihi"
                     className={styles.inputField}
-                    disabled={!startDate} // Başlangıç seçilmeden pasif
+                    disabled={!startDate}
+                    isClearable
                   />
                 </div>
                 <small>Not: Tarih filtrelemesi backend ile daha doğru çalışır.</small>
               </div>
               <div className={styles.featureGroup}>
                 <label className={styles.inputLabel}>Oda Özellikleri</label>
-                {/* Özellikler dinamik olarak API'den alınabilir */}
                 <div className={styles.featureCheckboxGroup}>
-                  {['TV', 'Minibar', 'Wi-Fi', 'Klima', 'Jakuzi'].map(feature => ( // Örnek özellikler
+                  {/* Özellikler dinamik olarak API'den veya sabit bir listeden alınabilir */}
+                  {['Wi-Fi', 'TV', 'Air Conditioning', 'Mini Bar', 'Balcony', 'Jacuzzi', 'Coffee Machine'].map(feature => (
                      <label key={feature} className={styles.featureLabel}>
-                        <input 
-                        type="checkbox" 
+                        <input
+                        type="checkbox"
                         checked={selectedFeatures.includes(feature)}
                         onChange={() => handleFeatureSelect(feature)}
                         /> {feature}
@@ -646,55 +653,58 @@ const RoomStatusPage = () => {
 
         {/* Oda Listesi veya Takvim Görünümü */}
         {isLoading ? (
-          renderLoading()
+          renderLoading() // Yükleniyor animasyonu göster
         ) : (
-          <>
-            {viewMode === 'list' && (
-              <div className={styles.roomGrid}>
-                {filteredRooms.length > 0 ? (
-                  filteredRooms.map(room => (
-                    <RoomCard
-                      key={room.id} // Benzersiz key olarak id kullanıldı
-                      room={room}
-                      onReserve={handleReserve}
-                      onViewDetails={handleViewDetails}
-                    />
-                  ))
-                ) : (
-                  // Filtre sonucunda oda bulunamadı mesajı
-                  <div className={styles.noRoomsMessage}> 
-                    Aradığınız kriterlere uygun oda bulunamadı.
-                  </div>
+          // Yükleme bittiyse ve hata yoksa içeriği göster
+           !error && ( // Hata yoksa render et
+             <>
+                {viewMode === 'list' && (
+                <div className={styles.roomGrid}>
+                    {filteredRooms.length > 0 ? (
+                    filteredRooms.map(room => (
+                        <RoomCard
+                        key={room.id}
+                        room={room}
+                        onReserve={handleReserve}
+                        onViewDetails={handleViewDetails}
+                        />
+                    ))
+                    ) : (
+                    // Hata yok ama filtre sonucu oda bulunamadıysa
+                    <div className={styles.noRoomsMessage}>
+                        Aradığınız kriterlere uygun oda bulunamadı.
+                    </div>
+                    )}
+                </div>
                 )}
-              </div>
-            )}
 
-            {viewMode === 'calendar' && (
-              <CalendarView 
-                 rooms={rooms} // Takvim görünümüne tüm odaları göndermek daha mantıklı olabilir
-                 onViewDetails={handleViewDetails} 
-                 onReserve={handleReserve} // Takvimden de rezervasyon başlatılabilir
-              />
-            )}
-          </>
+                {viewMode === 'calendar' && (
+                <CalendarView
+                    rooms={rooms} // Takvim tüm odaları kullanabilir
+                    onViewDetails={handleViewDetails}
+                    onReserve={handleReserve}
+                />
+                )}
+             </>
+           )
         )}
 
         {/* Oda Detay Modalı */}
-        {showModal && selectedRoom && ( // selectedRoom null değilse göster
-          <RoomDetailModal 
-            room={selectedRoom} 
+        {showModal && selectedRoom && (
+          <RoomDetailModal
+            room={selectedRoom}
             onClose={handleCloseModal}
-            onCancelReservation={handleCancelReservation} // İptal fonksiyonu eklendi
-            onReserve={handleReserve} // Detaydan da rezervasyon başlatılabilir
+            onCancelReservation={handleCancelReservation}
+            onReserve={handleReserve}
           />
         )}
 
         {/* Rezervasyon Formu Modalı */}
-        {showReservationForm && selectedRoom && ( // selectedRoom null değilse göster
+        {showReservationForm && selectedRoom && (
           <ReservationForm
             room={selectedRoom}
             onClose={handleCloseReservationForm}
-            onCreateReservation={handleCreateReservation} // Backend'e bağlanan fonksiyon
+            onCreateReservation={handleCreateReservation}
           />
         )}
       </div>

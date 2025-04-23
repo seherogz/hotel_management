@@ -1,0 +1,196 @@
+{
+  "format": 1,
+  "restore": {
+    "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Infrastructure/CleanArchitecture.Infrastructure.csproj": {}
+  },
+  "projects": {
+    "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj": {
+      "version": "1.1.0",
+      "restore": {
+        "projectUniqueName": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj",
+        "projectName": "CleanArchitecture.Core",
+        "projectPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj",
+        "packagesPath": "/Users/seheroguz/.nuget/packages/",
+        "outputPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/Users/seheroguz/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "AutoMapper": {
+              "target": "Package",
+              "version": "[14.0.0, )"
+            },
+            "FluentValidation": {
+              "target": "Package",
+              "version": "[9.1.2, )"
+            },
+            "FluentValidation.DependencyInjectionExtensions": {
+              "target": "Package",
+              "version": "[9.1.2, )"
+            },
+            "MediatR": {
+              "target": "Package",
+              "version": "[12.4.1, )"
+            },
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[13.0.3, )"
+            },
+            "System.Text.Json": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/8.0.303/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Infrastructure/CleanArchitecture.Infrastructure.csproj": {
+      "version": "1.1.0",
+      "restore": {
+        "projectUniqueName": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Infrastructure/CleanArchitecture.Infrastructure.csproj",
+        "projectName": "CleanArchitecture.Infrastructure",
+        "projectPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Infrastructure/CleanArchitecture.Infrastructure.csproj",
+        "packagesPath": "/Users/seheroguz/.nuget/packages/",
+        "outputPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Infrastructure/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/Users/seheroguz/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj": {
+                "projectPath": "/Users/seheroguz/Desktop/denemeTahtası/hotel_management/Backend/CleanArchitecture/CleanArchitecture.Application/CleanArchitecture.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "MailKit": {
+              "target": "Package",
+              "version": "[2.8.0, )"
+            },
+            "Microsoft.AspNetCore.Authentication.JwtBearer": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            },
+            "Microsoft.AspNetCore.Identity.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            },
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            },
+            "Microsoft.EntityFrameworkCore.InMemory": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            },
+            "Microsoft.Extensions.Options.ConfigurationExtensions": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "MimeKit": {
+              "target": "Package",
+              "version": "[2.9.1, )"
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/8.0.303/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
