@@ -5,5 +5,6 @@
         public decimal DailyIncome { get; set; }
         public decimal DailyExpense { get; set; }
         public decimal WeeklyIncome { get; set; }
+        public decimal WeeklyExpense { get; set; }
     }
 }

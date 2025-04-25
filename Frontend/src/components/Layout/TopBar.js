@@ -55,10 +55,10 @@ const TopBar = ({ title }) => {
           <button
             className={styles.createUserButton}
             onClick={handleCreateUser}
-            title="Kullanıcı Kaydı Oluştur"
+            title="New Registration"
           >
             <FaUserPlus />
-            <span>Kullanıcı Kaydı Oluştur</span>
+            <span>New Registration</span>
           </button>
         )}
 

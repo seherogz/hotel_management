@@ -11,6 +11,9 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CleanArchitecture.Core.Features.Income.Commands.UpdateIncome;
+using CleanArchitecture.Core.Features.Income.Commands.DeleteIncome;
+using CleanArchitecture.Core.Features.Expense.Commands.UpdateExpense;
 
 namespace CleanArchitecture.WebApi.Controllers.v1
 {
@@ -43,6 +46,31 @@ namespace CleanArchitecture.WebApi.Controllers.v1
             return Ok(new { id });
         }
 
+        // --- <<< YENİ: Update Income Endpoint >>> ---
+        [HttpPut("incomes/{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateIncome(int id, UpdateIncomeCommand command)
+        {
+            if (id != command.Id)
+            {
+                return BadRequest("ID mismatch between route and body.");
+            }
+            var updatedId = await Mediator.Send(command);
+            return Ok(new { id = updatedId });
+        }
+
+        // --- <<< YENİ: Delete Income Endpoint >>> ---
+        [HttpDelete("incomes/{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteIncome(int id)
+        {
+            var deletedId = await Mediator.Send(new DeleteIncomeCommand { Id = id });
+            return Ok(new { id = deletedId });
+        }
+        
         // GET: api/v1/Accounting/expenses
         [HttpGet("expenses")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PagedResponse<GetExpensesViewModel>))]
@@ -68,6 +96,21 @@ namespace CleanArchitecture.WebApi.Controllers.v1
             return Ok(new { id });
         }
 
+        // --- <<< YENİ: Update Expense Endpoint >>> ---
+        [HttpPut("expenses/{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateExpense(int id, UpdateExpenseCommand command)
+        {
+            if (id != command.Id)
+            {
+                return BadRequest("ID mismatch between route and body.");
+            }
+            var updatedId = await Mediator.Send(command);
+            return Ok(new { id = updatedId });
+        }
+        
         // DELETE: api/v1/Accounting/expenses/{id}
         [HttpDelete("expenses/{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]

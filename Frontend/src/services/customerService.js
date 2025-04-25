@@ -1,85 +1,110 @@
 // src/services/customerService.js
-import apiClient from './apiService'; // apiService'i import ettiğinden emin ol
+import apiClient from './apiService'; // apiService import edildiğinden emin olun
 
 const customerService = {
+
   /**
+   * Tüm müşterileri API'den çeker (Rezervasyon formundaki dropdown için).
+   * DİKKAT: Çok sayıda müşteri varsa ve API sayfalama yapıyorsa,
+   * tüm sayfaları çekecek bir mantık eklenmeli veya backend'de
+   * daha verimli bir endpoint (örn: arama/autocomplete) kullanılmalıdır.
+   * @returns {Promise<Array>} Müşteri nesneleri dizisi döner. Hata durumunda boş dizi veya hata fırlatır.
+   */
+  getAllCustomers: async () => {
+    try {
+      console.log("Tüm müşteriler çekiliyor (Rezervasyon Formu için)...");
+      // API endpoint'inin doğru olduğundan emin olun (örn: /v1/Customer)
+      const response = await apiClient.get(`/v1/Customer`);
+      console.log("getAllCustomers API yanıtı:", response.data);
+
+      // --- API Yanıt Yapısı Kontrolü ---
+      // API'nizin döndürdüğü gerçek yapıya göre bu kısmı uyarlayın.
+      let customerList = [];
+      if (response.data && Array.isArray(response.data.data)) {
+         // Örnek Yanıt Yapısı 1: { pageNumber:..., totalCount:..., data: [...] }
+         customerList = response.data.data;
+         if (response.data.totalCount && response.data.data.length < response.data.totalCount) {
+            console.warn("getAllCustomers: API yanıtı sayfalı! Sadece ilk sayfa işleniyor.");
+            // !!! BURADA TÜM SAYFALARI ÇEKME MANTIĞI GEREKEBİLİR !!!
+         }
+      } else if (Array.isArray(response.data)) {
+         // Örnek Yanıt Yapısı 2: Doğrudan [...] (Müşteri dizisi)
+         customerList = response.data;
+      } else {
+          // Beklenmedik Yanıt Yapısı
+          console.error("getAllCustomers: API'den beklenmedik müşteri listesi formatı:", response.data);
+          // Hata fırlatmak yerine boş liste döndürmek daha güvenli olabilir:
+          // return [];
+          throw new Error("Müşteri listesi alınamadı veya formatı geçersiz.");
+      }
+      // --- --------------------------- ---
+
+      // API'den null veya tanımsız kayıtlar geliyorsa filtrele (isteğe bağlı)
+      customerList = customerList.filter(customer => customer != null);
+
+      console.log(`getAllCustomers: ${customerList.length} müşteri başarıyla alındı.`);
+      return customerList;
+
+    } catch (error) {
+      console.error(`getAllCustomers: Tüm müşteriler alınırken hata:`, error.response?.data || error.message);
+      // Hata durumunda çağıran yere (örn: ReservationForm) bilgi vermek için hata fırlat
+      throw new Error(error.response?.data?.message || `Müşteriler alınırken bir hata oluştu: ${error.message}`);
+    }
+  },
+
+  /**
+   * [DEPRECATED or FOR SPECIFIC USE]
    * Verilen kimlik numarasına sahip müşteriyi frontend'de arayarak bulur.
-   * /v1/Customer endpoint'inden TÜM müşterileri çeker (Sayfalama olmadığı varsayılır).
-   * DİKKAT: Bu yöntem çok sayıda müşteri olduğunda yavaş olabilir!
+   * /v1/Customer endpoint'inden TÜM müşterileri çeker.
+   * DİKKAT: Performans sorunları nedeniyle önerilmez. getAllCustomers ve
+   * ReservationForm'daki ad/soyad seçimi tercih edilir.
    * @param {string} idNumber - Aranacak müşterinin kimlik numarası.
    * @returns {Promise<object|null>} Müşteri nesnesi veya bulunamazsa null döner.
    */
   getCustomerByIdNumber: async (idNumber) => {
-    // Kimlik numarası geçerli değilse veya boşsa arama yapma
+    // Kimlik numarası geçerliliği kontrolü
     if (!idNumber || typeof idNumber !== 'string' || idNumber.trim() === '') {
-       console.warn("Geçersiz veya boş kimlik numarasıyla arama yapılamaz.");
+       console.warn("getCustomerByIdNumber: Geçersiz veya boş kimlik numarası.");
        return null;
     }
-
-    const trimmedIdNumber = idNumber.trim(); // Boşlukları temizle
+    const trimmedIdNumber = idNumber.trim();
 
     try {
-      // 1. Tüm müşterileri çek (/v1/Customer endpoint'i - Sürümü (v1 vb.) kontrol et)
-      console.log("Geçici çözüm: Tüm müşteriler çekiliyor (performans sorunları olabilir)...");
-      const response = await apiClient.get(`/v1/Customer`); // Sürüm numarasını API'ne göre ayarla (örn: /v1/Customer)
-      console.log("Müşteri listesi API yanıtı:", response.data);
+      // Bu fonksiyon da tüm müşterileri çeker, verimsizdir.
+      console.warn("getCustomerByIdNumber: Tüm müşteriler tekrar çekiliyor (Verimsiz!).");
+      const customerList = await customerService.getAllCustomers(); // Yeniden kullanılabilirlik için diğer fonksiyonu çağır
 
-      // 2. API yanıtının yapısını kontrol et ve müşteri listesini al
-      let customerList = [];
-      if (response.data && Array.isArray(response.data.data)) {
-         // Eğer yanıt { pageNumber:..., data: [...] } şeklindeyse
-         customerList = response.data.data;
-         // !!! EĞER SAYFALAMA VARSA BURADA TÜM SAYFALARI ÇEKME MANTIĞI GEREKİR !!!
-         if (response.data.totalCount && response.data.data.length < response.data.totalCount) {
-            console.warn("API yanıtı sayfalı! Sadece ilk sayfa işleniyor. Tüm müşteriler kontrol edilmiyor olabilir.");
-            // Burada tüm sayfaları almak için ek API çağrıları yapılmalı (daha karmaşık)
-         }
-      } else if (Array.isArray(response.data)) {
-         // Eğer yanıt doğrudan [...] şeklindeyse
-         customerList = response.data;
-      } else {
-          console.error("API'den beklenmedik müşteri listesi formatı:", response.data);
-          throw new Error("Müşteri listesi alınamadı veya formatı geçersiz.");
-      }
+      // --- Kimlik Numarası Alan Adı ---
+      // API yanıtınızdaki kimlik numarası alan adını buraya yazın!
+      const identityField = 'identityNumber'; // <<<--- KESİNLİKLE KONTROL EDİN VE GÜNCELLEYİN!
+      // --- ------------------------ ---
 
-      console.log(`Toplam ${customerList.length} müşteri verisi üzerinde arama yapılıyor...`);
+      console.log(`getCustomerByIdNumber: ${customerList.length} müşteri içinde ${identityField} alanı ile ${trimmedIdNumber} aranıyor...`);
 
-      // 3. Listede kimlik numarasını ara
-      // !!! 'customer.identityNumber' kısmını KENDİ API YANITINDAKİ DOĞRU ALAN ADIYLA DEĞİŞTİR !!!
-      // API'nin döndürdüğü müşteri nesnesinde kimlik numarasının hangi alanda olduğuna bakmalısın.
-      // Örnekler: customer.identityNumber, customer.tcKimlikNo, customer.nationalId, customer.tckn vb.
-      const identityField = 'identityNumber'; // <<< --- BURAYI KENDİ API'NE GÖRE DEĞİŞTİR ---
-      // ---------------------------------------------------------------------------------
+      const foundCustomer = customerList.find(customer => {
+          if (!customer) return false; // Null müşteri kaydını atla
+          const customerIdValue = customer[identityField];
+          // console.log(`Comparing: API ('${customerIdValue}') === Form ('${trimmedIdNumber}')`); // Debug
+          return customerIdValue !== undefined && customerIdValue !== null &&
+                 String(customerIdValue).trim() === trimmedIdNumber;
+      });
 
-      const foundCustomer = customerList.find(customer =>
-          customer && // Müşteri nesnesi null değilse
-          customer[identityField] && // Kimlik numarası alanı var mı?
-          String(customer[identityField]).trim() === trimmedIdNumber // Değerler eşleşiyor mu?
-      );
-
-      console.log(`Kimlik No ${trimmedIdNumber} için bulunan müşteri:`, foundCustomer);
-
-      // 4. Bulunan müşteriyi veya null döndür
+      console.log(`getCustomerByIdNumber: Kimlik No ${trimmedIdNumber} için bulunan müşteri:`, foundCustomer);
       return foundCustomer || null;
 
     } catch (error) {
-      console.error(`Kimlik No ${trimmedIdNumber} ile müşteri aranırken genel hata:`, error.response?.data || error.message);
-      // Hatanın detayını fırlatmak, çağıran fonksiyonda (handleCreateReservation) daha iyi hata yönetimi sağlar.
-      throw new Error(error.response?.data?.message || `Müşteri aranırken bir hata oluştu: ${error.message}`);
+      // getAllCustomers zaten hatayı loglayıp fırlattığı için burada tekrar loglamaya gerek yok,
+      // sadece hatayı tekrar fırlatabiliriz veya null dönebiliriz.
+      console.error(`getCustomerByIdNumber: Müşteri aranırken hata oluştu (ID: ${trimmedIdNumber}).`, error.message);
+      // Hata detayını çağıran yere iletmek için fırlatmak daha iyi olabilir:
+      throw error;
+      // return null; // Alternatif: Hata durumunda null dön
     }
   },
 
-  // İleride gerekirse diğer müşteri API fonksiyonları buraya eklenebilir
-  // Örnek: Yeni müşteri oluşturma
-  // createCustomer: async (customerData) => {
-  //   try {
-  //     const response = await apiClient.post('/v1/Customer', customerData);
-  //     return response.data;
-  //   } catch (error) {
-  //     console.error('Müşteri oluşturulurken hata:', error.response?.data || error.message);
-  //     throw new Error(error.response?.data?.message || 'Müşteri oluşturulamadı.');
-  //   }
-  // },
+  // İleride eklenebilecek diğer fonksiyonlar (örn: createCustomer)
+  // createCustomer: async (customerData) => { ... }
+
 };
 
 export default customerService;

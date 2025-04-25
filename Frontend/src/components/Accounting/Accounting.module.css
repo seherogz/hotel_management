@@ -1,0 +1,131 @@
+.container {
+    padding: 20px;
+    font-family: Arial, sans-serif;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .title {
+    font-size: 24px;
+    color: #111;
+  }
+  .actions button {
+    margin-left: 8px;
+  }
+  .filterBtn {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    color: #374151;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .newBtn {
+    display: flex;
+    align-items: center;
+    background: #7c3aed;
+    border: none;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .icon {
+    margin-right: 6px;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 16px;
+  }
+  .card h3 {
+    font-size: 16px;
+    color: #333;
+    margin: 0;
+  }
+  .card p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 8px 0;
+  }
+  .income {
+    color: #16a34a;
+  }
+  .expense {
+    color: #dc2626;
+  }
+  .pending {
+    color: #d97706;
+  }
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 16px;
+  }
+  .tabs button {
+    flex: 1;
+    padding: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    font-weight: 500;
+  }
+  .tabs button:hover {
+    color: #111827;
+  }
+  .active {
+    border-bottom: 2px solid #7c3aed;
+    color: #7c3aed;
+  }
+  .tableContainer {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 16px;
+  }
+  .tableHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .tableHeader h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #374151;
+  }
+  .tableIcon {
+    margin-left: 8px;
+    cursor: pointer;
+    color: #6b7280;
+  }
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .table th,
+  .table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .table th {
+    color: #6b7280;
+    font-weight: 500;
+  }
+  .table td {
+    color: #374151;
+  }

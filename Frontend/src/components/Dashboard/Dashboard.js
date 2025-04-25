@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaBed, FaSignInAlt, FaSignOutAlt, FaUserFriends } from 'react-icons/fa';
-import MainLayout from '../Layout/MainLayout';
 import styles from './Dashboard.module.css';
 
 const Dashboard = () => {
@@ -19,7 +18,6 @@ const Dashboard = () => {
   };
 
   return (
-    <MainLayout title="Main Page">
       <div className={styles.dashboardContainer}>
         {/* Hoşgeldiniz Bölümü */}
         <div className={styles.welcomeSection}>
@@ -146,7 +144,6 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-    </MainLayout>
   );
 };
 

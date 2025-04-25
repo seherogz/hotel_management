@@ -150,7 +150,6 @@ const RegisterUser = () => {
   };
 
   return (
-    <MainLayout title="Kullanıcı Kaydı Oluştur">
       <div className={styles.registerContainer}> {/* */}
         <h2 className={styles.formTitle}>Yeni Kullanıcı Kaydı</h2> {/* */}
 
@@ -296,7 +295,6 @@ const RegisterUser = () => {
           </div>
         </form>
       </div>
-    </MainLayout>
   );
 };
 

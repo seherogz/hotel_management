@@ -23,9 +23,11 @@ using CleanArchitecture.Core.Features.Reservations.Commands.UpdateReservation;
 using CleanArchitecture.Core.Features.Income.Commands.CreateIncome;
 using CleanArchitecture.Core.Features.Income.Queries.GetIncomes;
 using CleanArchitecture.Core.Features.Expense.Commands.CreateExpense;
+using CleanArchitecture.Core.Features.Expense.Commands.UpdateExpense;
 using CleanArchitecture.Core.Features.Expense.Queries.GetExpenses;
 using CleanArchitecture.Core.Features.FinancialReports.Queries.GetMonthlyFinancialReport;
 using CleanArchitecture.Core.Features.FinancialReports.Queries.GetMonthlyDetails;
+using CleanArchitecture.Core.Features.Income.Commands.UpdateIncome;
 using CleanArchitecture.Core.Features.Shifts.Queries.GetShiftsByStaff; // ShiftViewModel için namespace
 
 namespace CleanArchitecture.Core.Mappings
@@ -163,9 +165,13 @@ namespace CleanArchitecture.Core.Mappings
             // ================== INCOME/EXPENSE MAPPINGS ==================
             CreateMap<CreateIncomeCommand, Income>();
             CreateMap<Income, GetIncomesViewModel>();
+            CreateMap<UpdateIncomeCommand, Income>() // <<<< EKLENDİ
+                .ForMember(dest => dest.Id, opt => opt.Ignore()); // ID map'lenmesin, zaten var
 
             CreateMap<CreateExpenseCommand, Expense>();
             CreateMap<Expense, GetExpensesViewModel>();
+            CreateMap<UpdateExpenseCommand, Expense>() // <<<< EKLENDİ
+                .ForMember(dest => dest.Id, opt => opt.Ignore()); // ID map'lenmesin, zaten var
 
 
             // ================== FINANCIAL REPORT MAPPINGS ==================
