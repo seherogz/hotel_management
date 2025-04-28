@@ -1,4 +1,6 @@
-﻿using CleanArchitecture.Core.Entities;
+﻿// File: Backend/CleanArchitecture/CleanArchitecture.Infrastructure/Repositories/ReservationRepositoryAsync.cs
+
+using CleanArchitecture.Core.Entities;
 using CleanArchitecture.Core.Interfaces.Repositories;
 using CleanArchitecture.Infrastructure.Contexts;
 using Microsoft.EntityFrameworkCore;
@@ -45,6 +47,7 @@ namespace CleanArchitecture.Infrastructure.Repositories
         public async Task<IReadOnlyList<Reservation>> GetReservationsByDateRangeAsync(DateTime startDate, DateTime endDate)
         {
             // Artık ReservationsWithDetails sorgusunu kullanıyoruz
+            // Sadece Pending ve Checked-in durumları dikkate alınıyor (veya ihtiyaca göre diğerleri)
             return await ReservationsWithDetails
                 .Where(r =>
                     (r.StartDate <= endDate && r.EndDate >= startDate) &&
@@ -63,7 +66,7 @@ namespace CleanArchitecture.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        // Sayfalanmış sonuçları ilişkili verilerle birlikte getiren metot (önceki adımdan)
+        // Sayfalanmış sonuçları ilişkili verilerle birlikte getiren metot
         public async Task<(IReadOnlyList<Reservation> data, int totalCount)> GetPagedReservationsWithDetailsAsync(int pageNumber, int pageSize)
         {
             var query = ReservationsWithDetails; // Include'ları içeren temel sorgu
@@ -76,23 +79,24 @@ namespace CleanArchitecture.Infrastructure.Repositories
             return (data, totalCount); // Hem veriyi hem toplam sayıyı döndür
         }
 
-        // !!! ID İLE GETİRME İÇİN YENİ EKLENEN METOT !!!
+        // ID ile getirme için metot (ilişkili verilerle)
         public async Task<Reservation> GetReservationByIdWithDetailsAsync(int id)
         {
             // Include'ları içeren sorguyu kullanarak ID'ye göre filtrele ve ilk eşleşeni getir
-            return await ReservationsWithDetails // .Include(r => r.Customer).Include(r => r.Room) içeriyor
+            return await ReservationsWithDetails
                          .FirstOrDefaultAsync(r => r.Id == id);
         }
 
 
+        // Oda müsaitlik kontrolü metodu (Durum kontrolü eklendi)
         public async Task<bool> IsRoomAvailableAsync(int roomId, DateTime startDate, DateTime endDate, int? excludeReservationId = null)
         {
             // Bu metodun Include'a ihtiyacı yok, sadece sayım yapıyor.
-            // Ancak sorguyu _dbContext üzerinden yapalım ki AsNoTracking otomatik gelmesin.
             var query = _dbContext.Set<Reservation>()
                 .Where(r =>
                     r.RoomId == roomId &&
-                    (r.Status == "Pending" || r.Status == "Checked-in") && // Sadece aktif/bekleyen rezervasyonlar çakışır
+                    // Sadece 'Pending' veya 'Checked-in' durumundaki rezervasyonları çakışma olarak değerlendir
+                    (r.Status == "Pending" || r.Status == "Checked-in") &&
                     (r.StartDate < endDate && r.EndDate > startDate) // Tarih aralığı çakışması kontrolü
                 );
 
@@ -102,8 +106,9 @@ namespace CleanArchitecture.Infrastructure.Repositories
                 query = query.Where(r => r.Id != excludeReservationId.Value);
             }
 
-            // Eğer çakışan rezervasyon yoksa (Count == 0), oda müsaittir (true döner).
-            return await query.CountAsync() == 0;
+            // Eğer çakışan (Pending veya Checked-in) rezervasyon yoksa (Count == 0), oda müsaittir (true döner).
+            int conflictingCount = await query.CountAsync();
+            return conflictingCount == 0;
         }
     }
 }

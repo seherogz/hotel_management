@@ -30,10 +30,6 @@ namespace CleanArchitecture.Core.Features.Reservations.Commands.CreateReservatio
                 .NotEmpty().WithMessage("Misafir sayısı gereklidir.")
                 .GreaterThan(0).WithMessage("Misafir sayısı sıfırdan büyük olmalıdır.");
 
-            RuleFor(r => r.Price)
-                .NotEmpty().WithMessage("Fiyat gereklidir.")
-                .GreaterThan(0).WithMessage("Fiyat sıfırdan büyük olmalıdır.");
-
             // Status alanı Command'dan kaldırıldığı için validator'da da kural yok.
         }
     }

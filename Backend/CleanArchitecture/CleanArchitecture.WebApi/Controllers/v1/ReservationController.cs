@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CleanArchitecture.Core.Features.Reservations.DTOs;
 
 namespace CleanArchitecture.WebApi.Controllers.v1
 {
@@ -48,13 +49,18 @@ namespace CleanArchitecture.WebApi.Controllers.v1
 
         // POST: api/v1/Reservation
         [HttpPost]
-        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(CreateReservationResponse))] // Yanıt tipi güncellendi
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Post(CreateReservationCommand command)
         {
-            var id = await Mediator.Send(command);
-            return CreatedAtAction(nameof(Get), new { id }, new { id });
+            // Mediator.Send artık CreateReservationResponse döndürüyor
+            var response = await Mediator.Send(command);
+
+            // CreatedAtAction'da hem ID'yi route değeri olarak, hem de tüm response nesnesini
+            // (ID ve Fiyat içeren) yanıt gövdesi olarak döndür.
+            return CreatedAtAction(nameof(Get), new { id = response.Id }, response);
         }
+
 
         // PUT: api/v1/Reservation/5
         [HttpPut("{id}")]

@@ -8,6 +8,8 @@ import Dashboard from './components/Dashboard/Dashboard';
 import RoomStatusPage from './components/RoomStatus/RoomStatus';
 import RegisterUser from './components/Register/RegisterUser';
 import AccountingPage from './components/Accounting/Accounting';
+import CheckIn from './components/CheckIn/CheckIn';
+import CheckOut from './components/CheckOut/CheckOut';
 
 // ProtectedRoute: only for authenticated users
 const ProtectedRoute = ({ children }) => {
@@ -51,6 +53,8 @@ function App() {
           <Route path="room-status" element={<RoomStatusPage />} />
           <Route path="accounting" element={<AccountingPage />} />
           <Route path="register" element={<RegisterUser />} />
+          <Route path="check-in" element={<CheckIn />} />
+          <Route path="check-out" element={<CheckOut />} />
 
           {/* Admin-only */}
           <Route

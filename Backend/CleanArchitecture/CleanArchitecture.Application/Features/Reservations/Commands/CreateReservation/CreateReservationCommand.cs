@@ -8,30 +8,35 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.Threading;
 using System.Threading.Tasks;
+using CleanArchitecture.Core.Features.Reservations.DTOs;
 using ValidationException = CleanArchitecture.Core.Exceptions.ValidationException;
+// using Microsoft.Extensions.Configuration; // KALDIRILDI
+// using Microsoft.Extensions.Options; // KALDIRILDI
+// using CleanArchitecture.Core.Settings;  // KALDIRILDI
+using CleanArchitecture.Core.Interfaces; // Opsiyonel (IDateTimeService vb. için)
 
 namespace CleanArchitecture.Core.Features.Reservations.Commands.CreateReservation
 {
-    public class CreateReservationCommand : IRequest<int>
+    // Command sınıfı aynı
+    public class CreateReservationCommand : IRequest<CreateReservationResponse>
     {
         [Required(ErrorMessage = "Müşteri kimlik numarası gereklidir.")]
-        public string CustomerIdNumber { get; set; } // Use ID number to find customer
-
+        public string CustomerIdNumber { get; set; }
         public int RoomId { get; set; }
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
+        public DateTime StartDate { get; set; } // Kullanıcının seçtiği tarih (saat kısmı yok sayılacak)
+        public DateTime EndDate { get; set; }   // Kullanıcının seçtiği tarih (saat kısmı yok sayılacak)
         public int NumberOfGuests { get; set; }
-        public decimal Price { get; set; }
-        // Status default "Pending" olacak, command'da belirtmeye gerek yok.
     }
 
-    public class CreateReservationCommandHandler : IRequestHandler<CreateReservationCommand, int>
+    public class CreateReservationCommandHandler : IRequestHandler<CreateReservationCommand, CreateReservationResponse>
     {
         private readonly IReservationRepositoryAsync _reservationRepository;
         private readonly ICustomerRepositoryAsync _customerRepository;
         private readonly IRoomRepositoryAsync _roomRepository;
         private readonly IMapper _mapper;
+        // IConfiguration veya IOptions bağımlılığı YOK
 
+        // Constructor güncellendi: IConfiguration/IOptions yok
         public CreateReservationCommandHandler(
             IReservationRepositoryAsync reservationRepository,
             ICustomerRepositoryAsync customerRepository,
@@ -44,46 +49,77 @@ namespace CleanArchitecture.Core.Features.Reservations.Commands.CreateReservatio
             _mapper = mapper;
         }
 
-        public async Task<int> Handle(CreateReservationCommand request, CancellationToken cancellationToken)
+        public async Task<CreateReservationResponse> Handle(CreateReservationCommand request, CancellationToken cancellationToken)
         {
-            // Müşteriyi ID numarasına göre bul
+            // --- Müşteri, Oda, Bakım Kontrolleri ---
             var customer = await _customerRepository.GetByIdNumberAsync(request.CustomerIdNumber);
-            if (customer == null)
-            {
-                // Veya EntityNotFoundException da olabilir
-                throw new ValidationException($"Customer with ID number '{request.CustomerIdNumber}' not found. Please create the customer first.");
-            }
+            if (customer == null) throw new ValidationException($"Customer with ID number '{request.CustomerIdNumber}' not found.");
 
-            // Odayı bul
             var room = await _roomRepository.GetByIdAsync(request.RoomId);
-            if (room == null)
+            if (room == null) throw new EntityNotFoundException("Room", request.RoomId);
+            if (room.IsOnMaintenance) throw new ValidationException("Cannot reserve a room under maintenance.");
+            // --- Kontroller Sonu ---
+
+            // --- Başlangıç ve Bitiş Saatlerini Ayarla (Doğrudan UTC olarak) ---
+            DateTime startDateUtc;
+            DateTime endDateUtc;
+            try
             {
-                throw new EntityNotFoundException("Room", request.RoomId);
+                // Kullanıcının girdiği tarihin gününü al, saati 15:00 yap, türünü UTC olarak belirt
+                startDateUtc = DateTime.SpecifyKind(
+                    request.StartDate.Date.Add(new TimeSpan(15, 0, 0)),
+                    DateTimeKind.Utc
+                 );
+                // Kullanıcının girdiği tarihin gününü al, saati 09:00 yap, türünü UTC olarak belirt
+                 endDateUtc = DateTime.SpecifyKind(
+                    request.EndDate.Date.Add(new TimeSpan(9, 0, 0)),
+                    DateTimeKind.Utc
+                 );
             }
+             catch (ArgumentOutOfRangeException ex) {
+                 // Eğer gelen tarih çok büyük/küçükse bu hata oluşabilir
+                 throw new ValidationException($"Invalid StartDate or EndDate provided. Potential overflow/underflow. Details: {ex.Message}");            }
 
-            // Oda bakımda mı kontrolü
-            if (room.IsOnMaintenance)
+            // Bitiş tarihinin başlangıçtan sonra olduğunu kontrol et
+            if (endDateUtc <= startDateUtc)
             {
-                 throw new ValidationException("Cannot make a reservation for a room that is under maintenance.");
+                throw new ValidationException("End date/time (09:00 UTC) must be after the start date/time (15:00 UTC). Check your selected dates.");
             }
+            // --- Saat Ayarlama Sonu ---
 
-            // Seçilen tarihlerde oda müsait mi?
-            var isAvailable = await _reservationRepository.IsRoomAvailableAsync(
-                request.RoomId, request.StartDate, request.EndDate);
-
+            // --- Oda Müsaitlik Kontrolü (Ayarlanmış UTC saatlerine göre) ---
+            var isAvailable = await _reservationRepository.IsRoomAvailableAsync(request.RoomId, startDateUtc, endDateUtc);
             if (!isAvailable)
             {
-                throw new ValidationException("The selected room is not available for the specified date range.");
+                throw new ValidationException("The selected room is not available for the specified dates.");
             }
+            // --- Müsaitlik Kontrolü Sonu ---
 
             // Rezervasyonu oluştur
-            var reservation = _mapper.Map<Reservation>(request);
-            reservation.CustomerId = customer.Id; // Müşteri ID'sini ata
-            reservation.Status = "Pending"; // Durumu Pending olarak ayarla
+            var reservation = new Reservation
+            {
+                 CustomerId = customer.Id,
+                 RoomId = request.RoomId,
+                 StartDate = startDateUtc, // Ayarlanmış UTC saati
+                 EndDate = endDateUtc,     // Ayarlanmış UTC saati
+                 NumberOfGuests = request.NumberOfGuests,
+                 Status = "Pending",
+                 Created = DateTime.UtcNow
+            };
+
+            // --- Fiyat Hesaplama (Gece sayısına göre - Değişiklik yok) ---
+            int numberOfNights = (int)(request.EndDate.Date - request.StartDate.Date).TotalDays;
+            if (numberOfNights <= 0) throw new ValidationException("Reservation must be for at least one night.");
+            reservation.Price = room.PricePerNight * numberOfNights;
+            // --- Fiyat Hesaplama Sonu ---
 
             await _reservationRepository.AddAsync(reservation);
 
-            return reservation.Id;
+            return new CreateReservationResponse
+            {
+                Id = reservation.Id,
+                CalculatedPrice = reservation.Price
+            };
         }
     }
 }
