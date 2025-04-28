@@ -1,104 +1,133 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 
+// Sayısal değeri güvenli bir şekilde formatlayan yardımcı fonksiyon
+const formatCurrency = (value) => {
+  // Değerin null, undefined veya NaN olup olmadığını kontrol et
+  const numericValue = Number(value); // Önce sayıya çevirmeyi dene
+  if (value === null || value === undefined || isNaN(numericValue)) {
+    // Geçersizse, varsayılan olarak 0'ı formatla
+    return (0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+  }
+  try {
+    // Geçerliyse, sayıyı formatla
+    return numericValue.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+  } catch (error) {
+    console.error("Error formatting currency:", error, "Value:", value);
+    // Hata durumunda basit bir gösterim sağla
+    return `${numericValue.toFixed(2)} TRY`;
+  }
+};
+
+
 const AccountingSummary = ({ financialSummary }) => {
+
+  // financialSummary prop'u veya içindeki değerler henüz yoksa
+  // bir yükleniyor mesajı veya null döndürmek daha güvenli olabilir.
+  // Ancak Accounting.js'de başlangıç değeri olduğu için devam edebiliriz.
+  if (!financialSummary) {
+      // Veya null döndürerek hiçbir şey göstermeyebiliriz
+      return <Typography variant="caption">Özet verileri bekleniyor...</Typography>;
+  }
+
+
   return (
-    <Box 
-      sx={{ 
-        display: 'flex', 
-        flexWrap: 'wrap', 
-        mb: 3, 
-        // border: '1px solid #e0e0e0',  // Kenarlığı kaldırabiliriz, gap yeterli ayrımı sağlar
-        // borderRadius: '4px', 
-        // overflow: 'hidden',         // Overflow'a da gerek kalmayabilir
-        gap: 2 // <<< Öğeler arasına boşluk ekler (MUI spacing unit, genelde 16px)
-        // bgcolor: 'background.paper' // İsteğe bağlı, arka plan rengi kalabilir
+    <Box
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        mb: 3,
+        gap: 2 // Öğeler arasına boşluk
       }}
     >
-      {/* Kutuları ayrı Paper bileşenleri olarak yapmak daha yaygındır */}
-      {/* Ama mevcut yapıyı koruyarak devam edelim */}
-
-      <Box 
-        sx={{ 
-          flex: '1 1 23%', // Gap eklediğimiz için flex-basis'i biraz azaltabiliriz (%25 yerine)
-          p: 3, 
-          // borderRight: '1px solid #e0e0e0', // <<< Kaldırıldı
-          minWidth: { xs: 'calc(100% - 16px)', sm: 'calc(50% - 8px)', md: 'calc(25% - 12px)' }, // Gap'i hesaba katmak için minWidth ayarı
-          bgcolor: 'background.paper', // Arka planı her kutuya ayrı ayrı verelim
-          borderRadius: '4px', // Köşe yuvarlamayı her kutuya ayrı ayrı verelim
-          border: '1px solid #e0e0e0' // Kenarlığı her kutuya ayrı ayrı verelim (opsiyonel)
+      {/* Daily Income */}
+      <Box
+        sx={{
+          flex: '1 1 23%',
+          p: 3,
+          minWidth: { xs: 'calc(100% - 16px)', sm: 'calc(50% - 8px)', md: 'calc(25% - 12px)' },
+          bgcolor: 'background.paper',
+          borderRadius: '4px',
+          border: '1px solid #e0e0e0'
         }}
       >
         <Typography variant="subtitle1" color="text.secondary" gutterBottom>
           Daily Income
         </Typography>
         <Typography variant="h4" color="success.main" sx={{ fontWeight: 'medium', mb: 1 }}>
-          {financialSummary.dailyIncome.toLocaleString('tr-TR')} ₺
+           {/* Güvenli formatlama fonksiyonunu kullan */}
+           {formatCurrency(financialSummary.dailyIncome)} {/* */}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {new Date().toLocaleDateString('tr-TR')}
         </Typography>
       </Box>
 
-      <Box 
-        sx={{ 
-          flex: '1 1 23%', 
-          p: 3, 
-          // borderRight: '1px solid #e0e0e0', // <<< Kaldırıldı
+      {/* Daily Expense */}
+      <Box
+        sx={{
+          flex: '1 1 23%',
+          p: 3,
           minWidth: { xs: 'calc(100% - 16px)', sm: 'calc(50% - 8px)', md: 'calc(25% - 12px)' },
           bgcolor: 'background.paper',
           borderRadius: '4px',
-          border: '1px solid #e0e0e0' 
+          border: '1px solid #e0e0e0'
         }}
       >
         <Typography variant="subtitle1" color="text.secondary" gutterBottom>
           Daily Expense
         </Typography>
         <Typography variant="h4" color="error.main" sx={{ fontWeight: 'medium', mb: 1 }}>
-          {financialSummary.dailyExpense.toLocaleString('tr-TR')} ₺
+           {/* Güvenli formatlama fonksiyonunu kullan */}
+           {formatCurrency(financialSummary.dailyExpense)} {/* */}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {new Date().toLocaleDateString('tr-TR')}
         </Typography>
       </Box>
 
-      <Box 
-        sx={{ 
-          flex: '1 1 23%', 
-          p: 3, 
-          // borderRight: '1px solid #e0e0e0', // <<< Kaldırıldı
+      {/* Weekly Income */}
+      <Box
+        sx={{
+          flex: '1 1 23%',
+          p: 3,
           minWidth: { xs: 'calc(100% - 16px)', sm: 'calc(50% - 8px)', md: 'calc(25% - 12px)' },
           bgcolor: 'background.paper',
           borderRadius: '4px',
-          border: '1px solid #e0e0e0' 
+          border: '1px solid #e0e0e0'
         }}
       >
         <Typography variant="subtitle1" color="text.secondary" gutterBottom>
           Weekly Income
         </Typography>
         <Typography variant="h4" color="success.main" sx={{ fontWeight: 'medium', mb: 1 }}>
-          {financialSummary.weeklyIncome.toLocaleString('tr-TR')} ₺
+           {/* Güvenli formatlama fonksiyonunu kullan */}
+           {formatCurrency(financialSummary.weeklyIncome)} {/* */}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Last 7 days
         </Typography>
       </Box>
 
-      <Box 
-        sx={{ 
-          flex: '1 1 23%', 
+      {/* Weekly Expense (Dikkat: Kodunuzda burada pendingPayments kullanılmıştı, weeklyExpense olmalı) */}
+      <Box
+        sx={{
+          flex: '1 1 23%',
           p: 3,
           minWidth: { xs: 'calc(100% - 16px)', sm: 'calc(50% - 8px)', md: 'calc(25% - 12px)' },
           bgcolor: 'background.paper',
           borderRadius: '4px',
-          border: '1px solid #e0e0e0' 
+          border: '1px solid #e0e0e0'
         }}
       >
         <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+           {/* Başlık düzeltildi */}
           Weekly Expense
         </Typography>
         <Typography variant="h4" color="warning.main" sx={{ fontWeight: 'medium', mb: 1 }}>
-          {financialSummary.pendingPayments.toLocaleString('tr-TR')} ₺
+           {/* Güvenli formatlama ve doğru alan kullanıldı */}
+           {formatCurrency(financialSummary.weeklyExpense)} {/* */}
+           {/* {formatCurrency(financialSummary.pendingPayments)} // Önceki kodunuzda bu vardı, API'de weeklyExpense var */}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Last 7 days
