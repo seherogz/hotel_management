@@ -516,6 +516,73 @@ export const accountingService = {
 };
 
 /**
+ * Reservation service to interact with the backend
+ */
+export const reservationService = {
+  /**
+   * Get check-ins with optional filters
+   * @param {Object} params - Filter params: { pageNumber, pageSize, checkInDate, reservationId, customerName }
+   * @returns {Promise<Object>} - Paged response with check-ins
+   */
+  getCheckIns: async ({ pageNumber = 1, pageSize = 10, checkInDate = '', reservationId = '', customerName = '' } = {}) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required');
+
+      let url = `${API_BASE_URL}/v1/Reservation/check-ins?PageNumber=${pageNumber}&PageSize=${pageSize}`;
+      if (checkInDate) url += `&CheckInDate=${encodeURIComponent(checkInDate)}`;
+      if (reservationId) url += `&ReservationId=${encodeURIComponent(reservationId)}`;
+      if (customerName) url += `&CustomerName=${encodeURIComponent(customerName)}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch check-ins');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching check-ins:', error);
+      throw error;
+    }
+  },
+  /**
+   * Check-in action for a reservation
+   * @param {number|string} reservationId
+   * @returns {Promise<Object>} - Response from the API
+   */
+  checkIn: async (reservationId) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required');
+      const response = await fetch(`${API_BASE_URL}/v1/Reservation/check-in`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reservationId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Check-in işlemi başarısız.');
+      }
+      return data;
+    } catch (error) {
+      console.error('Error during check-in:', error);
+      throw error;
+    }
+  },
+};
+
+/**
  * Helper function to get the auth token from AsyncStorage
  */
 const getAuthToken = async () => {
