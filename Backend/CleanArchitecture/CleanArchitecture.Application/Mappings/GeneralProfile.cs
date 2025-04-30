@@ -38,10 +38,10 @@ namespace CleanArchitecture.Core.Mappings
         {
             // ================== ROOM MAPPINGS ==================
             CreateMap<Room, GetAllRoomsViewModel>()
-                 // Alan isimleri aynı olanlar (Id, RoomNumber, RoomType, Floor, Capacity, PricePerNight, IsOnMaintenance, Description) otomatik maplenir.
-                 .ForMember(dest => dest.Features, opt => opt.Ignore()) // Handler'da Amenities'ten doldurulacak
-                 .ForMember(dest => dest.ComputedStatus, opt => opt.Ignore()) // Handler'da hesaplanacak
-                 .ForMember(dest => dest.StatusCheckDate, opt => opt.Ignore()); // Handler'da set edilecek
+                // Alan isimleri aynı olanlar (Id, RoomNumber, RoomType, Floor, Capacity, PricePerNight, IsOnMaintenance, Description) otomatik maplenir.
+                .ForMember(dest => dest.Features, opt => opt.Ignore()) // Handler'da Amenities'ten doldurulacak
+                .ForMember(dest => dest.ComputedStatus, opt => opt.Ignore()); // Handler'da hesaplanacak
+            
 
             CreateMap<Room, GetRoomByIdViewModel>()
                 // Alan isimleri aynı olanlar (Id, RoomNumber, RoomType, Floor, Capacity, PricePerNight, IsOnMaintenance, Description) otomatik maplenir.

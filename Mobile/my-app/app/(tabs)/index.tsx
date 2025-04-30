@@ -1,54 +1,277 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, StatusBar, Alert } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, StatusBar, Alert, Modal, TextInput } from 'react-native';
+import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuth } from '@/context/AuthContext';
+import { authService } from '@/services/api';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const username = params.username || "Utku Adanur"; // Default if not provided
+  const { user, logout } = useAuth();
+  const [registerModalVisible, setRegisterModalVisible] = useState(false);
+  const [registerData, setRegisterData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    userName: '',
+    password: '',
+    confirmPassword: '',
+    role: '',
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   
-  const handleLogout = () => {
+  // Available roles
+  const roles = ['Accountant', 'Receptionist'];
+  
+  // Use the email from the context or params as a fallback
+  const userEmail = user?.email || params.email || "user@example.com";
+  
+  const handleLogout = async () => {
+    // Show confirmation dialog
     Alert.alert(
-      "Çıkış Yap",
-      "Oturumu kapatmak istediğinize emin misiniz?",
+      "Logout",
+      "Are you sure you want to log out?",
       [
         {
-          text: "İptal",
+          text: "Cancel",
           style: "cancel"
         },
         { 
-          text: "Çıkış Yap", 
-          onPress: () => router.replace('/') 
+          text: "Logout", 
+          onPress: async () => {
+            try {
+              console.log('Logging out...');
+              // First perform the logout to clear all authentication state
+              const success = await logout();
+              
+              if (success) {
+                console.log('Logged out successfully, redirecting to login screen...');
+                
+                // Ensure we're navigating to the login screen correctly
+                // Use replace to prevent going back to the dashboard with the back button
+                setTimeout(() => {
+                  router.replace('/');
+                }, 100); // Small delay to ensure state updates complete
+              } else {
+                console.error('Logout was not successful');
+                Alert.alert('Logout Error', 'An error occurred while logging out. Please try again.');
+              }
+            } catch (error) {
+              console.error('Error during logout:', error);
+              Alert.alert('Logout Error', 'An error occurred while logging out. Please try again.');
+            }
+          }
         }
       ]
     );
+  };
+
+  const handleRegister = async () => {
+    // Validate form data
+    if (!registerData.firstName || !registerData.lastName || !registerData.email || 
+        !registerData.userName || !registerData.password || !registerData.confirmPassword || !registerData.role) {
+      Alert.alert('Validation Error', 'All fields are required');
+      return;
+    }
+
+    if (registerData.password !== registerData.confirmPassword) {
+      Alert.alert('Validation Error', 'Passwords do not match');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Call the API to register the user
+      const response = await authService.register(registerData);
+      
+      // Close modal and show success message
+      setRegisterModalVisible(false);
+      setRegisterData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        userName: '',
+        password: '',
+        confirmPassword: '',
+        role: '',
+      });
+      
+      Alert.alert('Success', 'Employee registered successfully');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to register employee';
+      Alert.alert('Registration Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const selectRole = (role: string) => {
+    setRegisterData({...registerData, role});
+    setShowRoleDropdown(false);
   };
   
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Main Page</Text>
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.profileButton}>
-            <Ionicons name="person-circle-outline" size={28} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.username}>{username}</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <MaterialIcons name="logout" size={24} color="white" />
-          </TouchableOpacity>
+      {/* Custom Header with Register and Logout */}
+<View style={styles.header}>
+  <Text style={styles.headerTitle}>Hotel Management System</Text>
+  <View style={styles.headerButtons}>
+    {/* Conditionally render Register button based on Admin OR SuperAdmin role */}
+    {/* BURAYI DÜZELTİN: user?.Roles yerine user?.roles kullanın */}
+    {(user?.roles?.includes('Admin') || user?.roles?.includes('SuperAdmin')) && (
+      <TouchableOpacity
+        style={styles.registerButton}
+        onPress={() => setRegisterModalVisible(true)}
+      >
+        <MaterialIcons name="person-add" size={24} color="#fff" />
+        <Text style={styles.buttonText}>Register</Text>
+      </TouchableOpacity>
+    )}
+    <TouchableOpacity
+      style={styles.logoutButton}
+      onPress={handleLogout}
+    >
+      <MaterialIcons name="logout" size={24} color="#fff" />
+      <Text style={styles.buttonText}>Logout</Text>
+    </TouchableOpacity>
+  </View>
+</View>
+      
+      {/* Registration Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={registerModalVisible}
+        onRequestClose={() => setRegisterModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Register New Employee</Text>
+              <TouchableOpacity onPress={() => setRegisterModalVisible(false)}>
+                <MaterialIcons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalContent}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>First Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter first name"
+                  value={registerData.firstName}
+                  onChangeText={(text) => setRegisterData({...registerData, firstName: text})}
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Last Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter last name"
+                  value={registerData.lastName}
+                  onChangeText={(text) => setRegisterData({...registerData, lastName: text})}
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter email address"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={registerData.email}
+                  onChangeText={(text) => setRegisterData({...registerData, email: text})}
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Username</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter username"
+                  autoCapitalize="none"
+                  value={registerData.userName}
+                  onChangeText={(text) => setRegisterData({...registerData, userName: text})}
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Role</Text>
+                <TouchableOpacity 
+                  style={styles.roleSelector}
+                  onPress={() => setShowRoleDropdown(!showRoleDropdown)}
+                >
+                  <Text style={registerData.role ? styles.roleText : styles.placeholderText}>
+                    {registerData.role || "Select a role"}
+                  </Text>
+                  <MaterialIcons name={showRoleDropdown ? "arrow-drop-up" : "arrow-drop-down"} size={24} color="#555" />
+                </TouchableOpacity>
+                
+                {showRoleDropdown && (
+                  <View style={styles.roleDropdown}>
+                    {roles.map((role) => (
+                      <TouchableOpacity 
+                        key={role} 
+                        style={styles.roleOption}
+                        onPress={() => selectRole(role)}
+                      >
+                        <Text style={styles.roleOptionText}>{role}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter password"
+                  secureTextEntry={true}
+                  value={registerData.password}
+                  onChangeText={(text) => setRegisterData({...registerData, password: text})}
+                />
+              </View>
+              
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Confirm Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm password"
+                  secureTextEntry={true}
+                  value={registerData.confirmPassword}
+                  onChangeText={(text) => setRegisterData({...registerData, confirmPassword: text})}
+                />
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.registerSubmitButton} 
+                onPress={handleRegister}
+                disabled={isLoading}
+              >
+                <Text style={styles.registerSubmitButtonText}>
+                  {isLoading ? 'Processing...' : 'Register Employee'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
         </View>
-      </View>
+      </Modal>
       
       <ScrollView style={styles.content}>
         {/* Greeting */}
-        <Text style={styles.greeting}>Hoş Geldiniz, Otel Yönetim Sistemine</Text>
+        <Text style={styles.greeting}>Welcome to Hotel Management System</Text>
+        <Text style={styles.userInfo}>Logged in as: {userEmail}</Text>
         
         {/* Daily Summary */}
-        <Text style={styles.sectionTitle}>Bugünün Özeti</Text>
+        <Text style={styles.sectionTitle}>Today's Summary</Text>
         
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
@@ -56,14 +279,14 @@ export default function DashboardScreen() {
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <MaterialIcons name="hotel" size={24} color="#4C3A89" />
-              <Text style={styles.statTitle}>Odalar</Text>
+              <Text style={styles.statTitle}>Rooms</Text>
             </View>
             <Text style={styles.statValue}>45/120</Text>
-            <Text style={styles.statSubtitle}>Müsait oda sayısı</Text>
+            <Text style={styles.statSubtitle}>Available rooms</Text>
             <View style={styles.statDetails}>
-              <Text style={styles.statDetailText}>45 müsait</Text>
-              <Text style={styles.statDetailText}>68 dolu</Text>
-              <Text style={styles.statDetailText}>7 bakımda</Text>
+              <Text style={styles.statDetailText}>45 available</Text>
+              <Text style={styles.statDetailText}>68 occupied</Text>
+              <Text style={styles.statDetailText}>7 maintenance</Text>
             </View>
           </View>
           
@@ -71,16 +294,16 @@ export default function DashboardScreen() {
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <MaterialIcons name="swap-horiz" size={24} color="#4CAF50" />
-              <Text style={styles.statTitle}>Giriş/Çıkış</Text>
+              <Text style={styles.statTitle}>Check In/Out</Text>
             </View>
             <View style={styles.statDoubleValue}>
               <View style={styles.statDoubleItem}>
                 <Text style={styles.statValue}>15</Text>
-                <Text style={styles.statSubtitle}>Bugünkü giriş</Text>
+                <Text style={styles.statSubtitle}>Today's check-ins</Text>
               </View>
               <View style={styles.statDoubleItem}>
                 <Text style={styles.statValue}>12</Text>
-                <Text style={styles.statSubtitle}>Bugünkü çıkış</Text>
+                <Text style={styles.statSubtitle}>Today's check-outs</Text>
               </View>
             </View>
           </View>
@@ -88,34 +311,34 @@ export default function DashboardScreen() {
           {/* Revenue Card */}
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
-              <FontAwesome5 name="lira-sign" size={20} color="#2E7D32" />
-              <Text style={styles.statTitle}>Gelir</Text>
+              <FontAwesome5 name="dollar-sign" size={20} color="#2E7D32" />
+              <Text style={styles.statTitle}>Revenue</Text>
             </View>
-            <Text style={styles.statValue}>24.500 ₺</Text>
-            <Text style={styles.statSubtitle}>Bugünkü gelir</Text>
-            <Text style={styles.statDetail}>Bu ay: 356.000 ₺</Text>
+            <Text style={styles.statValue}>$24,500</Text>
+            <Text style={styles.statSubtitle}>Today's revenue</Text>
+            <Text style={styles.statDetail}>This month: $356,000</Text>
           </View>
           
           {/* Reservations Card */}
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <MaterialIcons name="event-available" size={24} color="#1976D2" />
-              <Text style={styles.statTitle}>Rezervasyonlar</Text>
+              <Text style={styles.statTitle}>Reservations</Text>
             </View>
             <Text style={styles.statValue}>32</Text>
-            <Text style={styles.statSubtitle}>Önümüzdeki 7 gün</Text>
+            <Text style={styles.statSubtitle}>Next 7 days</Text>
           </View>
         </View>
         
         {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Hızlı Erişim</Text>
+        <Text style={styles.sectionTitle}>Quick Access</Text>
         <View style={styles.quickActions}>
           <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: '#4C3A89' }]}
             onPress={() => router.push('/rooms')}
           >
             <MaterialIcons name="meeting-room" size={24} color="white" />
-            <Text style={styles.actionButtonText}>ODA DURUMUNU GÖRÜNTÜLE</Text>
+            <Text style={styles.actionButtonText}>VIEW ROOM STATUS</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -123,7 +346,7 @@ export default function DashboardScreen() {
             onPress={() => router.push('/checkIn')}
           >
             <MaterialIcons name="login" size={24} color="white" />
-            <Text style={styles.actionButtonText}>YENİ GİRİŞ İŞLEMİ</Text>
+            <Text style={styles.actionButtonText}>NEW CHECK-IN</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -131,7 +354,7 @@ export default function DashboardScreen() {
             onPress={() => router.push('/checkOut')}
           >
             <MaterialIcons name="logout" size={24} color="white" />
-            <Text style={styles.actionButtonText}>YENİ ÇIKIŞ İŞLEMİ</Text>
+            <Text style={styles.actionButtonText}>NEW CHECK-OUT</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -139,34 +362,34 @@ export default function DashboardScreen() {
             onPress={() => router.push('/customerInfo')}
           >
             <MaterialIcons name="people" size={24} color="white" />
-            <Text style={styles.actionButtonText}>MÜŞTERİ LİSTESİ</Text>
+            <Text style={styles.actionButtonText}>CUSTOMER LIST</Text>
           </TouchableOpacity>
         </View>
         
         {/* Database Status */}
         <View style={styles.databaseStatus}>
-          <Text style={styles.databaseTitle}>Veritabanı Durumu</Text>
+          <Text style={styles.databaseTitle}>Database Status</Text>
           <View style={styles.databaseDetails}>
             <View style={styles.databaseItem}>
-              <Text style={styles.databaseLabel}>Toplam Müşteri:</Text>
+              <Text style={styles.databaseLabel}>Total Customers:</Text>
               <Text style={styles.databaseValue}>250</Text>
             </View>
             
             <View style={styles.databaseItem}>
-              <Text style={styles.databaseLabel}>Son Güncelleme:</Text>
+              <Text style={styles.databaseLabel}>Last Update:</Text>
               <Text style={styles.databaseValue}>26.03.2025 22:54:30</Text>
             </View>
             
             <View style={styles.databaseItem}>
-              <Text style={styles.databaseLabel}>Veritabanı Bağlantısı:</Text>
-              <Text style={[styles.databaseValue, styles.activeStatus]}>Aktif</Text>
+              <Text style={styles.databaseLabel}>Database Connection:</Text>
+              <Text style={[styles.databaseValue, styles.activeStatus]}>Active</Text>
             </View>
           </View>
         </View>
         
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2023 Otel Yönetim Sistemi - Tüm Hakları Saklıdır</Text>
+          <Text style={styles.footerText}>© 2023 Hotel Management System - All Rights Reserved</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -179,33 +402,138 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#3C3169',
-    paddingTop: 10,
-    paddingBottom: 10,
+    backgroundColor: '#6B3DC9',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
     paddingHorizontal: 15,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  registerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    marginLeft: 5,
+    fontWeight: 'bold',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '85%',
+    maxHeight: '80%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6B3DC9',
+  },
+  modalContent: {
+    padding: 15,
+  },
+  inputGroup: {
+    marginBottom: 15,
+  },
+  inputLabel: {
+    fontSize: 16,
+    marginBottom: 5,
+    color: '#333',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 10,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  // Role selector styles
+  roleSelector: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 10,
+    backgroundColor: '#f9f9f9',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headerTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
+  roleText: {
+    fontSize: 16,
+    color: '#333',
   },
-  headerRight: {
-    flexDirection: 'row',
+  placeholderText: {
+    fontSize: 16,
+    color: '#aaa',
+  },
+  roleDropdown: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    backgroundColor: 'white',
+    marginTop: 5,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+  },
+  roleOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  roleOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  registerSubmitButton: {
+    backgroundColor: '#6B3DC9',
+    padding: 15,
+    borderRadius: 5,
     alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20,
   },
-  profileButton: {
-    marginRight: 10,
-  },
-  username: {
+  registerSubmitButtonText: {
     color: 'white',
     fontSize: 16,
-    marginRight: 10,
-  },
-  logoutButton: {
-    padding: 5,
+    fontWeight: 'bold',
   },
   content: {
     flex: 1,
@@ -214,14 +542,20 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 20,
     color: '#333',
+    marginBottom: 5,
+  },
+  userInfo: {
+    fontSize: 16,
+    color: '#555',
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#555',
+    color: '#333',
+    marginTop: 15,
+    marginBottom: 10,
   },
   statsContainer: {
     flexDirection: 'row',

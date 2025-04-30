@@ -12,6 +12,6 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
         public bool? IsOnMaintenance { get; set; } // <<< EKLENDİ
         public DateTime? AvailabilityStartDate { get; set; } // <<< EKLENDİ
         public DateTime? AvailabilityEndDate { get; set; }   // <<< EKLENDİ
-        public DateTime? StatusCheckDate { get; set; } // <<< EKLENDİ
+        
     }
 }

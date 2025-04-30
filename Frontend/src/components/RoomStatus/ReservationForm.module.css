@@ -1,3 +1,6 @@
+/* ReservationForm.module.css - TEMİZLENMİŞ VE DÜZENLENMİŞ */
+
+/* --- Modal Genel Stilleri --- */
 .modalOverlay {
   position: fixed;
   top: 0;
@@ -6,36 +9,39 @@
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.6);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: center; /* Dikeyde ortala */
+  justify-content: center; /* Yatayda ortala */
   z-index: 1000;
+  padding: 20px; /* Kenar boşluğu */
 }
 
 .modalContent {
   background-color: white;
   border-radius: 8px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
+  width: 100%; /* Mobil için tam genişlik */
+  max-width: 550px; /* Maksimum genişlik */
+  max-height: 90vh; /* Maksimum yükseklik */
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   display: flex;
-  flex-direction: column;
+  flex-direction: column; /* İçerik alt alta */
+  overflow: hidden; /* İçerik taşarsa scroll body'de olacak */
 }
 
+/* --- Modal Başlığı --- */
 .modalHeader {
-  background-color: #3f2b7b;
-  color: white;
-  padding: 15px 20px;
+  /* background-color: #3f2b7b; */ /* İstersen arkaplan rengi verebilirsin */
+  /* color: white; */
+  color: #333; /* Veya koyu renk */
+  padding: 15px 25px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
+  border-bottom: 1px solid #eee; /* Başlık altı çizgi */
+  flex-shrink: 0; /* Başlık küçülmesin */
 }
 
 .modalTitle {
-  font-size: 18px;
+  font-size: 1.3em; /* Biraz daha büyük */
   font-weight: 600;
   margin: 0;
 }
@@ -43,155 +49,150 @@
 .closeButton {
   background: none;
   border: none;
-  color: white;
-  font-size: 18px;
+  font-size: 1.6em; /* Biraz daha büyük */
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  transition: background-color 0.3s;
+  color: #888;
+  padding: 0;
+  line-height: 1;
 }
-
 .closeButton:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  color: #333;
 }
 
-.reservationForm {
-  padding: 20px;
-}
-
-.formSection {
-  margin-bottom: 25px;
-}
-
-.sectionTitle {
-  font-size: 16px;
-  font-weight: 600;
-  color: #3f2b7b;
-  margin-bottom: 15px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #eee;
+/* --- Modal Gövdesi (Form Alanı) --- */
+.modalBody {
+  padding: 25px; /* İç boşluk */
+  overflow-y: auto; /* Gerektiğinde scroll */
 }
 
 .formGroup {
-  margin-bottom: 15px;
+  margin-bottom: 18px; /* Gruplar arası boşluk */
+}
+.formGroup:last-child {
+  margin-bottom: 0; /* Son grubun altında boşluk olmasın */
 }
 
-.formLabel {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #555;
-  margin-bottom: 6px;
-}
-
-.formInput {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  transition: border-color 0.3s;
-}
-
-.formInput:focus {
-  outline: none;
-  border-color: #3f2b7b;
-}
-
-.inputError {
-  border-color: #f44336;
-}
-
-.errorText {
-  color: #f44336;
-  font-size: 12px;
-  margin-top: 4px;
-  display: block;
-}
-
-.helperText {
-  color: #999;
-  font-size: 12px;
-  margin-top: 4px;
-  display: block;
-}
-
-.dateGroup {
-  display: flex;
-  gap: 15px;
-}
-
-.dateField {
-  flex: 1;
-}
-
-.datePickerContainer {
-  position: relative;
-}
-
-.calendarIcon {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #999;
-  pointer-events: none; /* icon shouldn't interfere with clicks */
-}
-
-.modalFooter {
-  padding: 15px 20px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  border-top: 1px solid #eee;
-}
-
-.cancelButton {
-  padding: 8px 16px;
-  background-color: #f5f5f5;
-  color: #666;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-.cancelButton:hover {
-  background-color: #e0e0e0;
-}
-
-.submitButton {
-  padding: 8px 16px;
-  background-color: #3f2b7b;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.3s;
+/* JSX'teki styles.label ile eşleşiyor */
+.label {
   display: flex;
   align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #444; /* Biraz daha koyu */
+  font-size: 0.9em; /* Biraz daha küçük */
 }
 
-.submitButton:hover {
-  background-color: #32205f;
+/* JSX'teki styles.input ile eşleşiyor */
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1em; /* Normal font boyutu */
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.buttonIcon {
-  margin-right: 6px;
+.input:focus {
+  outline: none;
+  border-color: #3f2b7b; /* Tema rengi */
+  box-shadow: 0 0 0 3px rgba(63, 43, 123, 0.1); /* Hafif odak efekti */
 }
 
-/* Responsive Design */
-@media (max-width: 576px) {
-  .dateGroup {
-    flex-direction: column;
-    gap: 10px;
-  }
-} 
+/* JSX'teki styles.datePickerGroup ile eşleşiyor */
+/* Tarih seçicileri yan yana koymak için */
+.datePickerGroup {
+  display: flex;
+  gap: 15px; /* Aralarına boşluk */
+  flex-wrap: wrap; /* Küçük ekranda alt alta gelebilir */
+}
+
+/* DatePicker'ı içeren div için stil */
+.datePickerWrapper {
+  flex: 1; /* Eşit yer kaplasınlar */
+  min-width: 180px; /* Minimum genişlik */
+}
+/* react-datepicker input'unun tam genişlikte olmasını sağla */
+.datePickerWrapper .input {
+   width: 100%;
+}
+/* NOT: DatePicker için global stil (index.css'e) hala gerekebilir! */
+/* .react-datepicker-wrapper, .react-datepicker__input-container, */
+/* .react-datepicker__input-container input { */
+/* display: block !important; width: 100% !important; box-sizing: border-box !important; */
+/* } */
+
+
+/* --- Modal Altbilgisi (Butonlar) --- */
+.modalFooter {
+  padding: 15px 25px;
+  display: flex;
+  justify-content: flex-end; /* Butonları sağa yasla */
+  gap: 12px; /* Butonlar arası boşluk */
+  border-top: 1px solid #eee;
+  background-color: #f9f9f9; /* Hafif farklı arkaplan */
+  border-bottom-left-radius: 8px; /* Köşeleri yuvarlat */
+  border-bottom-right-radius: 8px;
+  flex-shrink: 0; /* Footer küçülmesin */
+}
+
+/* JSX'teki styles.button ile eşleşiyor */
+.button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.95em; /* Biraz daha küçük */
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* JSX'teki styles.cancelButton ile eşleşiyor */
+.cancelButton {
+  background-color: #f0f0f0;
+  color: #555;
+  border: 1px solid #ddd;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background-color: #e0e0e0;
+  border-color: #ccc;
+}
+
+/* JSX'teki styles.submitButton ile eşleşiyor */
+.submitButton {
+  background-color: #3f2b7b; /* Ana renk */
+  color: white;
+}
+
+.submitButton:hover:not(:disabled) {
+  background-color: #32205f; /* Koyu ton */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Hata mesajı stili */
+.errorMessage {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-size: 0.9em;
+  border: 1px solid #f5c6cb;
+}
+
+/* İkonlar için genel stil (gerekirse) */
+.label svg, .button svg {
+  /* font-size: 1.1em; */ /* İkon boyutunu ayarla */
+  /* vertical-align: middle; */ /* Dikey hizalama */
+}

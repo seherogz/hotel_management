@@ -16,6 +16,10 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
         public string ComputedStatus { get; set; } // Bu alan var
         public string Description { get; set; }
         public List<string> Features { get; set; } = new List<string>();
-        public DateTime? StatusCheckDate { get; set; } // Bu alan var
+        
+        public string? OccupantName { get; set; } // O anki misafirin adı (null olabilir)
+        public int? CurrentReservationId { get; set; } // O anki rezervasyon ID'si (null olabilir)
+        public DateTime? OccupantCheckInDate { get; set; } // O anki misafirin giriş tarihi (null olabilir)
+        public DateTime? OccupantCheckOutDate { get; set; }
     }
 }

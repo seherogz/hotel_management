@@ -1,242 +1,212 @@
+/* CalendarView.module.css - YENİ YAPI İÇİN GÜNCELLENMİŞ */
+
 .calendarContainer {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
+  padding: 15px;
   background-color: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 16px;
-  margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
 
-.calendarNavigation {
+/* Navigasyon (Önceki gibi kalabilir) */
+.calendarNav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+.monthLabel { font-size: 1.2em; font-weight: bold; color: #333; }
+.navButton { background: none; border: none; cursor: pointer; padding: 5px; font-size: 1.1em; color: #007bff; }
+.navButton:hover { color: #0056b3; }
+.todayButton { /* ... önceki stiller ... */ }
+
+
+/* Takvim Grid Ana Alanı */
+.calendarGrid {
+  /* Genel grid alanı */
 }
 
-.dateRangeDisplay {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.dateRange {
-  font-weight: 500;
-  font-size: 16px;
-}
-
-.navButton {
-  background: none;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 5px 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #555;
-  transition: all 0.2s;
-}
-
-.navButton:hover {
-  background-color: #f5f5f5;
-  color: #333;
-  border-color: #ccc;
-}
-
-.todayButton {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background-color: #f0f7ff;
-  border: 1px solid #cbe2ff;
-  border-radius: 4px;
-  padding: 5px 12px;
-  color: #0066cc;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.todayButton:hover {
-  background-color: #dbeaff;
-}
-
-.calendarGridContainer {
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-.calendarTable {
-  border-collapse: collapse;
-  width: 100%;
-  min-width: 800px;
-  table-layout: fixed;
-}
-
-.headerRow {
-  background-color: #f7f9fc;
-}
-
-.roomHeader {
+/* Haftanın Günleri Başlığı */
+.daysHeader {
+  display: grid;
+  /* 1. Sütun (Oda başlığı boşluğu), 2-8. Sütunlar (7 gün, eşit) */
+  grid-template-columns: 120px repeat(7, 1fr);
+  border-bottom: 2px solid #eee;
+  padding-bottom: 5px;
+  margin-bottom: 5px;
   position: sticky;
-  left: 0;
-  z-index: 2;
-  background-color: #f7f9fc;
-  width: 120px;
-  text-align: left;
-  padding: 10px;
-  border-bottom: 2px solid #eaeef3;
-  font-weight: 600;
-  color: #344767;
-}
-
-.dateHeader {
-  min-width: 80px;
-  padding: 8px 4px;
-  text-align: center;
-  border-bottom: 2px solid #eaeef3;
-  font-weight: normal;
-  color: #555;
-}
-
-.dateHeaderContent {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.dayName {
-  font-size: 12px;
-  font-weight: 500;
-  color: #555;
-}
-
-.dayNumber {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-
-.today {
-  background-color: #f0f7ff;
-  border-bottom: 2px solid #0066cc;
-}
-
-.today .dayName {
-  color: #0066cc;
-}
-
-.today .dayNumber {
-  color: #0066cc;
-}
-
-.roomRow:hover {
-  background-color: #f7f9fc;
-}
-
-.roomCell {
-  position: sticky;
-  left: 0;
-  z-index: 1;
+  top: 0;
   background-color: #fff;
-  padding: 12px 10px;
-  border-bottom: 1px solid #eaeef3;
-  font-weight: 500;
-  color: #344767;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  z-index: 10;
+  box-sizing: border-box; /* Eklendi */
 }
 
-.roomRow:hover .roomCell {
-  background-color: #f7f9fc;
+/* Başlıktaki ilk sütun için boşluk (Oda etiketlerinin üstü) */
+.roomHeaderPlaceholder {
+   grid-column: 1 / 2; /* İlk sütunda yer al */
+   /* background-color: #f8f9fa; */ /* İsteğe bağlı arkaplan */
+   border-right: 1px solid #eee; /* Satırlarla hizalamak için */
+   box-sizing: border-box; /* Eklendi */
+   padding: 8px 10px; /* İçerikle aynı hizada olması için */
+   font-weight: 600; /* Stil tutarlılığı için */
+   color: #666;
+   font-size: 0.9em;
+   text-align: center; /* Veya sola dayalı */
 }
 
-.roomCell:hover {
-  background-color: #eff4fb !important;
-}
 
-.statusCell {
-  padding: 0;
-  border: 1px solid #eaeef3;
+/* Başlıktaki her bir gün hücresi */
+.dayHeaderCell {
   text-align: center;
-  height: 50px;
+  font-weight: 600;
+  color: #666;
+  font-size: 0.9em;
+  padding: 8px 0;
+  box-sizing: border-box; /* Eklendi */
+  /* border-right: 1px solid #f0f0f0; /* İsteğe bağlı dikey ayırıcılar */
+}
+/* .dayHeaderCell:last-child { border-right: none; } */
+.headerDayNumber { /* Gün numarasını içeren span (isteğe bağlı) */
+    display: block;
+    font-size: 0.9em;
+    font-weight: normal;
+    margin-top: 2px;
+}
+
+
+/* Takvim Gövdesi */
+.calendarGridBody {
+  /* Genel gövde */
+}
+
+/* Tek Bir Oda Satırı - GÜNCELLENDİ */
+.calendarRow {
+  display: grid;
+  /* 1. Sütun (Oda Etiketi), 2. Sütun (Tüm Günler Konteyneri) */
+  grid-template-columns: 120px 1fr; /* 120px sabit, kalan tüm alan günlere */
+  border-bottom: 1px solid #f0f0f0;
+  box-sizing: border-box; /* Eklendi */
+}
+.calendarRow:last-child {
+  border-bottom: none;
+}
+
+/* Oda Etiketi (Satır Başında) - GÜNCELLENDİ */
+.calendarRoomLabel {
+  grid-column: 1 / 2; /* İlk sütunda yer al */
+  background-color: #f8f9fa;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 0.9em;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid #eee;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  box-sizing: border-box; /* Eklendi */
+  cursor: pointer; /* Tıklama hissi için */
+}
+.calendarRoomType {
+  font-size: 0.8em;
+  font-weight: normal;
+  color: #777;
+}
+
+
+/* Günlük Durum Hücrelerinin Konteyneri - GÜNCELLENDİ */
+.calendarDaysContainer {
+  grid-column: 2 / 3; /* Ana gridin ikinci sütununu kapla */
+  display: grid; /* Kendi içinde 7 sütunlu bir grid oluştur */
+  grid-template-columns: repeat(7, 1fr); /* 7 eşit sütun */
+  box-sizing: border-box; /* Eklendi */
+}
+
+/* Tek Bir Oda/Gün Hücresi - GÜNCELLENDİ */
+.roomDayCell {
+  /* Artık grid öğesi olduğu için flex:1 yerine grid sütunları genişliği belirler */
+  min-height: 50px;
+  border-right: 1px solid #f0f0f0;
+  padding: 5px;
+  font-size: 0.8em;
   cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.statusCell:hover {
-  transform: scale(1.02);
-  z-index: 3;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.cellContent {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  height: 100%;
-  width: 100%;
-  padding: 4px;
+  text-align: center;
+  transition: background-color 0.2s ease;
+  position: relative;
+  overflow: hidden; /* İçerik taşmasını engellemek için */
+  box-sizing: border-box; /* Eklendi */
+}
+.roomDayCell:last-child {
+  border-right: none; /* Haftanın son hücresinin sağ çizgisi olmaz */
+}
+/* Farklı aydan gelen günler için */
+.disabled {
+  background-color: #f9f9f9; /* Daha soluk arkaplan */
+  color: #bbb;
+  cursor: default;
+}
+.disabled:hover {
+   background-color: #f9f9f9; /* Hover efekti olmasın */
 }
 
-.guestInfo {
-  font-size: 10px;
+/* Bugün vurgusu */
+.todayHighlight {
+   /* background-color: #e8f0fe; */ /* Hafif mavi arkaplan */
+   /* border: 1px solid #d2e3fc; */
+   position: relative;
+}
+/* Veya sadece altına bir çizgi */
+.todayHighlight::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background-color: #007bff; /* Mavi çizgi */
+    border-radius: 1px;
+}
+
+
+/* Durum Renkleri */
+.available { background-color: #e9f7ef; /* Açık yeşil */ }
+.occupied { background-color: #f8d7da; /* Açık kırmızı */ color: #721c24; font-weight: 500; }
+.maintenance { background-color: #fff3cd; /* Açık sarı */ color: #856404; font-style: italic; }
+
+.roomDayCell:not(.disabled):hover {
+  background-color: #eee; /* Hover efekti */
+  z-index: 2; /* Diğerlerinin üzerine çıksın */
+}
+
+/* Hücre İçi Metinler */
+.cellOccupantName {
+  /* font-weight: bold; */
+  display: block;
+  width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
-  color: #fff;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
 }
 
-/* Status Colors */
-.available {
-  background-color: #60c668;
-  color: white;
+.cellMaintenanceText {
+ /* font-style: italic; */
 }
 
-.occupied {
-  background-color: #e74c3c;
-  color: white;
-}
 
-.maintenance {
-  background-color: #f39c12;
-  color: white;
+/* Yükleniyor veya Boş Mesajı */
+.loadingOrEmptyCell {
+    padding: 20px;
+    text-align: center;
+    color: #888;
+    font-style: italic;
 }
-
-/* For wide displays - make the calendar stretch more */
-@media (min-width: 1200px) {
-  .calendarTable {
-    min-width: 1000px;
-  }
-  
-  .dateHeader {
-    min-width: 100px;
-  }
+.roomHeaderColumnPlaceholder { /* Grid'de oda başlığı sütunu kadar boşluk */
+    background-color: #f8f9fa;
+    border-right: 1px solid #eee;
 }
-
-/* For small displays */
-@media (max-width: 768px) {
-  .roomHeader {
-    width: 80px;
-  }
-  
-  .dateHeader {
-    min-width: 70px;
-  }
-  
-  .dayName {
-    font-size: 10px;
-  }
-  
-  .dayNumber {
-    font-size: 12px;
-  }
-} 

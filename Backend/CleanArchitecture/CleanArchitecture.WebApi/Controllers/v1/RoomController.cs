@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using CleanArchitecture.Core.Features.MaintenanceIssues.Commands.ResolveMaintenanceIssue;
+using CleanArchitecture.Core.Features.Rooms.Queries.GetCalendarView;
 
 namespace CleanArchitecture.WebApi.Controllers.v1
 {
@@ -36,7 +37,7 @@ namespace CleanArchitecture.WebApi.Controllers.v1
                 IsOnMaintenance = filter.IsOnMaintenance, // <<< EKLENDİ
                 AvailabilityStartDate = filter.AvailabilityStartDate, // <<< EKLENDİ
                 AvailabilityEndDate = filter.AvailabilityEndDate, // <<< EKLENDİ
-                StatusCheckDate = filter.StatusCheckDate
+                
             });
         }
 
@@ -148,6 +149,19 @@ namespace CleanArchitecture.WebApi.Controllers.v1
         {
             var resultRoomId = await Mediator.Send(new ResolveMaintenanceIssueCommand { RoomId = roomId, MaintenanceIssueId = issueId });
             return Ok(new { Message = $"Maintenance issue {issueId} for room {roomId} resolved.", RoomId = resultRoomId });
+        }
+        
+        [HttpGet("CalendarView")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<RoomCalendarViewModel>))] // Yeni ViewModel tipi
+        public async Task<IActionResult> GetCalendarView([FromQuery] GetCalendarViewQuery query)
+        {
+            // Başlangıç/Bitiş tarihlerini query'den alıp Mediator'a gönder
+            if (query.StartDate == DateTime.MinValue || query.EndDate == DateTime.MinValue || query.EndDate <= query.StartDate)
+            {
+                return BadRequest("Valid StartDate and EndDate are required, and EndDate must be after StartDate.");
+            }
+            var result = await Mediator.Send(query);
+            return Ok(result);
         }
     }
 }

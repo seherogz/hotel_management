@@ -1,302 +1,299 @@
-// src/components/RoomStatus/RoomStatus.js
+// Frontend/src/components/RoomStatus/RoomStatus.js
 
-import React, { useState, useEffect } from 'react';
-import {
-    FaTable,
-    FaCalendarAlt,
-    FaSync,
-    FaFilter,
-    FaExclamationTriangle,
-    FaSearch,
-    FaCalendar,
-    FaList
-} from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom'; // Yönlendirme için import
+import React, { useState, useEffect, useCallback } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css"; // DatePicker CSS
+import { useNavigate } from 'react-router-dom';
+// Gerekli date-fns fonksiyonları
+import { format as formatDateFns, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, subMonths, parseISO, isEqual } from 'date-fns';
+import { tr } from 'date-fns/locale';
+// İkonlar
+import { FaTable, FaCalendarAlt, FaSync, FaFilter, FaExclamationTriangle, FaSearch, FaCalendar, FaList } from 'react-icons/fa';
 
-import RoomCard from './RoomCard';
-import RoomDetailModal from './RoomDetailModal';
-import ReservationForm from './ReservationForm'; // Rezervasyon formu import edildi
-import CalendarView from './CalendarView';
-import styles from './RoomStatus.module.css';
+// Bileşenleri import et
+import RoomCard from './RoomCard'; // Liste görünümü için
+import RoomDetailModal from './RoomDetailModal'; // Detay modalı
+import ReservationForm from './ReservationForm'; // Rezervasyon modalı
+import CalendarView from './CalendarView'; // Haftalık görünüm için güncellenmiş
+import styles from './RoomStatus.module.css'; // Stil modülü
+import roomService from '../../services/roomService'; // Güncellenmiş servis
 
-// Servisler
-import roomService from '../../services/roomService';
-import customerService from '../../services/customerService'; // Kullanılmayabilir ama kalabilir
+// --- Helper Fonksiyonlar ---
 
+// Tarihi Backend İçin Formatla ('YYYY-MM-DD')
+const formatDateForBackend = (date) => {
+  if (!date) return null;
+  try {
+    const dateObj = (date instanceof Date) ? date : parseISO(String(date)); // ISO parse etmeyi dene
+    if (isNaN(dateObj.getTime())) return null;
+    return formatDateFns(dateObj, 'yyyy-MM-dd');
+  } catch (e) {
+    console.error("formatDateForBackend hatası:", date, e);
+    return null;
+  }
+};
+
+// Özellikleri Parse Et (String veya JSON Array -> Array)
+const parseFeatures = (features) => {
+     if (!features) return [];
+     if (Array.isArray(features)) return features;
+     if (typeof features === 'string') {
+         try {
+             const parsed = JSON.parse(features);
+             return Array.isArray(parsed) ? parsed : [];
+         } catch (e) {
+             if (features.includes(',')) return features.split(',').map(f => f.trim()).filter(f => f);
+             return features.trim() ? [features.trim()] : [];
+         }
+     }
+     console.warn("Beklenmedik features formatı:", features);
+     return [];
+};
+
+
+// --- RoomStatusPage Bileşeni ---
 const RoomStatusPage = () => {
   // --- State Tanımlamaları ---
-  const [rooms, setRooms] = useState([]); // API'den gelen tüm odalar (formatlanmış)
-  const [filteredRooms, setFilteredRooms] = useState([]); // Filtrelenmiş odalar
-  const [roomNumberSearch, setRoomNumberSearch] = useState(''); // Oda no arama inputu
-  const [statusFilter, setStatusFilter] = useState(''); // Durum filtresi selectbox'ı
-  const [startDate, setStartDate] = useState(null); // Tarih filtresi başlangıç
-  const [endDate, setEndDate] = useState(null); // Tarih filtresi bitiş
+  const [rooms, setRooms] = useState([]); // Backend'den gelen veri (liste VEYA takvim formatı)
+  const [filteredRooms, setFilteredRooms] = useState([]); // Sadece Liste görünümünde kullanılan filtrelenmiş liste
+  const [roomNumberSearch, setRoomNumberSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  // Liste görünümü filtre tarihleri (başlangıçta boş)
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  // Takvim görünümünün mevcut HAFTASININ başlangıç tarihini tutar
+  const [calendarWeekStart, setCalendarWeekStart] = useState(() => startOfWeek(new Date(), { locale: tr, weekStartsOn: 1 }));
+  const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false); // Gelişmiş filtre görünürlüğü
-  const [selectedFeatures, setSelectedFeatures] = useState([]); // Seçili özellik filtreleri
   const [isLoading, setIsLoading] = useState(true); // Yükleniyor durumu
-  const [error, setError] = useState(null); // Hata mesajı state'i
-  const [selectedRoom, setSelectedRoom] = useState(null); // Detay/Rezervasyon için seçilen oda
+  const [error, setError] = useState(null); // Hata mesajı
+  const [selectedRoom, setSelectedRoom] = useState(null); // Modallar için seçili oda
   const [showModal, setShowModal] = useState(false); // Detay modalı görünürlüğü
   const [showReservationForm, setShowReservationForm] = useState(false); // Rezervasyon formu görünürlüğü
-  const [viewMode, setViewMode] = useState('list'); // 'list' veya 'calendar' görünümü
-  const navigate = useNavigate(); // Yönlendirme hook'u
+  const [viewMode, setViewMode] = useState('list'); // Başlangıç modu 'list'
+  const navigate = useNavigate(); // React Router (gerekirse)
 
-  // --- Helper Fonksiyonlar --- (Önceki kodla aynı kalabilir)
-
-  // Tarih string'ini Date objesine çevirir
-  const parseDateString = (dateStr) => {
-      if (!dateStr) return null;
-      if (dateStr instanceof Date) return dateStr;
-      try {
-          let parsedDate = new Date(dateStr);
-          if (!isNaN(parsedDate.getTime())) return parsedDate;
-          const parts = String(dateStr).split('.');
-          if (parts.length === 3) {
-              const day = parseInt(parts[0], 10);
-              const month = parseInt(parts[1], 10) - 1;
-              const year = parseInt(parts[2], 10);
-              if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-                  parsedDate = new Date(year, month, day);
-                  if (!isNaN(parsedDate.getTime())) return parsedDate;
-              }
-          }
-      } catch(e) { console.error("Tarih ayrıştırma hatası (parseDateString):", dateStr, e); }
-      console.warn("Geçersiz veya tanınmayan tarih formatı (parseDateString):", dateStr);
-      return null;
-  };
-
-  // Tarihi 'dd.MM.yyyy' formatına çevirir
-  const formatDate = (date) => {
-      if (!date) return '';
-      const d = parseDateString(date);
-      if (!d || isNaN(d.getTime())) return '';
-      try { return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-      catch (e) { console.error("Tarih formatlama hatası (formatDate):", date, e); return ''; }
-  };
-
-   // Backend'den gelen durum string'ini frontend standardına çevirir
-   const mapStatusFromBackend = (status) => {
-       const lowerCaseStatus = status ? String(status).toLowerCase() : 'available';
-       const statusMap = { 'available': 'Available', 'occupied': 'Occupied', 'maintenance': 'Under Maintenance', 'cleaning': 'Cleaning', };
-       return statusMap[lowerCaseStatus] || 'Available';
-   };
-
-   // API'den gelen özellikler verisini diziye çevirir
-   const parseFeatures = (features) => {
-       if (!features) return [];
-       if (Array.isArray(features)) return features;
-       if (typeof features === 'string') {
-           try {
-               const parsed = JSON.parse(features);
-               return Array.isArray(parsed) ? parsed : [];
-           } catch (e) {
-               if (features.includes(',')) return features.split(',').map(f => f.trim()).filter(f => f);
-               return features.trim() ? [features.trim()] : [];
-           }
-       }
-       console.warn("Beklenmedik features formatı:", features);
-       return [];
-   };
-
-   // Tarihi backend'in beklediği 'YYYY-MM-DD' formatına çevirir
-   const formatDateForBackend = (dateStr) => {
-        const dateObj = parseDateString(dateStr);
-        if (!dateObj) return null;
-        const year = dateObj.getFullYear();
-        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-        const day = dateObj.getDate().toString().padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-  // --- API Etkileşimleri ---
-
-  // Odaları API'den yükleyen ana fonksiyon
-  const loadRoomsFromBackend = async () => {
+  // --- Backend'den Veri Yükleme Fonksiyonu ---
+  const loadDataForView = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    console.log(`Veri yükleniyor: Mod=${viewMode}`);
+
     try {
-      // Oda verilerini al (Önceki kodla aynı)
-      const roomsData = await roomService.getAllRooms();
-      if (roomsData && Array.isArray(roomsData.data)) {
-        const formattedRooms = roomsData.data.map(room => ({
-           id: room.id || room._id,
-           roomNumber: String(room.roomNumber) || '',
-           capacity: `${room.capacity || 'Bilinmiyor'} Kişilik`,
-           status: mapStatusFromBackend(room.computedStatus),
-           features: parseFeatures(room.features),
-           pricePerNight: room.pricePerNight || 0,
-           imageUrl: room.imageUrl || null,
-           // Guest ve Maintenance bilgileri API yanıtına göre doldurulmalı
-           guest: room.guest ? {
-               name: room.guest.name || 'Bilinmiyor',
-               checkInDate: formatDate(room.guest.checkInDate),
-               checkOutDate: formatDate(room.guest.checkOutDate),
-               reservationId: room.guest.reservationId || null
-           } : null,
-           maintenance: room.isOnMaintenance ? {
-               issue: room.description && room.description !== 'none' ? room.description : 'Bakımda',
-               estimatedCompletionDate: formatDate(room.maintenance?.estimatedCompletionDate) || 'Bilinmiyor'
-           } : null,
-           roomType: room.roomType,
-           description: room.description,
-        }));
-        setRooms(formattedRooms);
-        setFilteredRooms(formattedRooms);
-      } else {
-         console.error("API'den geçersiz veri yapısı alındı veya 'data' alanı bulunamadı:", roomsData);
-         throw new Error('Oda verileri alınırken beklenmedik bir formatla karşılaşıldı.');
+      let apiResponse; // Ham API yanıtı
+      let processedData = []; // İşlenmiş veri
+
+      if (viewMode === 'calendar') {
+        // TAKVİM MODU: /v1/Room/CalendarView endpoint'ini çağır
+        // calendarWeekStart state'ine göre haftalık aralığı hesapla
+        const weekStartDate = startOfWeek(calendarWeekStart, { weekStartsOn: 1 });
+        const weekEndDate = endOfWeek(calendarWeekStart, { weekStartsOn: 1 });
+        const params = {
+          StartDate: formatDateForBackend(weekStartDate),
+          EndDate: formatDateForBackend(weekEndDate),
+        };
+
+        if (params.StartDate && params.EndDate) {
+          console.log("API İsteği (Takvim Haftalık):", params);
+          apiResponse = await roomService.getCalendarViewData(params); // Yeni servis fonksiyonu
+          // Gelen veri: [{ roomId, roomNumber, dailyStatuses: [...] }]
+           if (apiResponse && Array.isArray(apiResponse)) { // Direkt dizi varsayımı
+             processedData = apiResponse;
+          } else if (apiResponse && Array.isArray(apiResponse.data)) { // { data: [...] } varsayımı
+             processedData = apiResponse.data;
+          } else {
+              console.error("Takvim API'sinden geçersiz veri:", apiResponse);
+              processedData = [];
+          }
+        } else {
+             console.warn("Takvim için geçersiz hafta başlangıcı, istek atlanıyor.");
+             processedData = [];
+        }
+
+      } else { // viewMode === 'list'
+        // LİSTE MODU: /v1/Room endpoint'ini çağır
+        const params = {};
+        const formattedStartDate = formatDateForBackend(startDate);
+        const formattedEndDate = formatDateForBackend(endDate);
+        // Sadece iki tarih de seçiliyse parametreleri ekle
+        if (formattedStartDate && formattedEndDate) {
+          params.AvailabilityStartDate = formattedStartDate;
+          params.AvailabilityEndDate = formattedEndDate;
+        }
+         console.log("API İsteği (Liste):", params);
+        apiResponse = await roomService.getAllRooms(params); // Genel oda endpoint'i
+
+         // Gelen veriyi işle (computedStatus belirle vs.)
+         if (apiResponse && Array.isArray(apiResponse.data)) { // .data gerekebilir
+             processedData = apiResponse.data.map(room => { // .data gerekebilir
+                 let finalStatus = 'Available';
+                 if (room.isOnMaintenance === true) { finalStatus = 'Maintenance'; }
+                 else if (room.computedStatus?.toLowerCase() === 'occupied') { finalStatus = 'Occupied'; }
+                 else { finalStatus = 'Available'; }
+                 // Frontend için RoomCard'ın beklediği formatta obje oluştur
+                 return {
+                    id: room.id || room._id, // Liste görünümü ID kullanır
+                    roomNumber: String(room.roomNumber) || '',
+                    capacity: `${room.capacity || '?'}`,
+                    computedStatus: finalStatus, // Hesaplanan durum
+                    occupantName: room.occupantName || null,
+                    occupantCheckInDate: room.occupantCheckInDate || null,
+                    occupantCheckOutDate: room.occupantCheckOutDate || null,
+                    currentReservationId: room.currentReservationId || null,
+                    features: parseFeatures(room.features),
+                    pricePerNight: room.pricePerNight || 0,
+                    roomType: room.roomType || '',
+                    description: room.description || '',
+                 };
+             });
+         } else {
+             console.error("Liste API'sinden geçersiz veri:", apiResponse);
+             processedData = [];
+         }
       }
+
+      setRooms(processedData); // Ana state'i güncelle (takvim veya liste verisi ile)
+
     } catch (err) {
-      console.error('Odalar yüklenirken hata:', err);
-      const errorMessage = err.message || 'Odalar yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
-      setError(errorMessage);
-      setRooms([]);
-      setFilteredRooms([]);
+       console.error(`${viewMode} için veri yüklenirken hata:`, err);
+       const errorMessage = typeof err === 'string' ? err : (err.message || err.title || 'Veri yüklenirken bir hata oluştu.');
+       setError(errorMessage);
+       setRooms([]); // Hata durumunda temizle
+       setFilteredRooms([]); // Hata durumunda temizle
     } finally {
       setIsLoading(false);
     }
+  }, [viewMode, startDate, endDate, calendarWeekStart, setIsLoading, setError, setRooms]); // Bağımlılıklar
+
+
+  // --- useEffect Hook'ları ---
+
+  // 1. Veri çekmeyi tetikleyen useEffect:
+  useEffect(() => {
+    console.log("Veri çekme useEffect tetiklendi, viewMode:", viewMode);
+    loadDataForView();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadDataForView]); // loadDataForView useCallback ile sarmalandığı için güvenli
+
+
+  // 2. Frontend filtrelemelerini uygulayan useEffect (Sadece Liste modunda):
+  useEffect(() => {
+    // 'rooms' state'i backend'den gelen hem liste hem takvim verisini tutuyor.
+    // Sadece liste verisi formatındaysa filtreleme yap.
+    const isListData = rooms && rooms.length > 0 && rooms[0]?.computedStatus !== undefined && rooms[0]?.dailyStatuses === undefined;
+
+    if (viewMode === 'list' && isListData) {
+      const applyFrontendFilters = () => {
+        console.log("Frontend filtreleri uygulanıyor (Liste Modu)...");
+        let tempFiltered = [...rooms];
+        if (roomNumberSearch) {
+           tempFiltered = tempFiltered.filter(room =>
+                room.roomNumber.toLowerCase().includes(roomNumberSearch.toLowerCase())
+            );
+        }
+        if (statusFilter) {
+           tempFiltered = tempFiltered.filter(room =>
+                room.computedStatus === statusFilter
+            );
+        }
+        if (selectedFeatures.length > 0) {
+            tempFiltered = tempFiltered.filter(room =>
+                selectedFeatures.every(feature =>
+                    Array.isArray(room.features) && room.features.includes(feature)
+                )
+            );
+        }
+        setFilteredRooms(tempFiltered);
+      };
+      if (!isLoading) { applyFrontendFilters(); }
+    } else {
+      // Takvim modundaysa veya liste verisi henüz doğru formatta değilse
+      // filtrelenmiş listeyi ham listeye eşitle
+      setFilteredRooms([...rooms]);
+    }
+  }, [rooms, roomNumberSearch, statusFilter, selectedFeatures, isLoading, viewMode]);
+
+
+  // --- Handler Fonksiyonlar ---
+
+  // Takvimden Gelen Hafta Değişikliği Handler'ı
+  const handleCalendarWeekChange = useCallback((newWeekStartDate) => {
+    console.log("handleCalendarWeekChange çalıştı, yeni başlangıç:", newWeekStartDate);
+    // Yeni haftanın başlangıcını state'e ata
+    // Ensure it's a valid date before setting
+    if (newWeekStartDate instanceof Date && !isNaN(newWeekStartDate.getTime())) {
+       setCalendarWeekStart(newWeekStartDate);
+    } else {
+        console.error("handleCalendarWeekChange geçersiz tarih aldı:", newWeekStartDate);
+        // Optionally reset to today or show error
+        setCalendarWeekStart(startOfWeek(new Date(), { locale: tr, weekStartsOn: 1 }));
+    }
+  }, []); // Boş dependency array
+
+
+  // Rezervasyon Oluşturma Handler'ı
+  const handleCreateReservation = async (reservationPayload) => {
+    console.log('handleCreateReservation çağrıldı, payload:', reservationPayload);
+    setError(null);
+    setIsLoading(true); // Başlat
+    try {
+      const response = await roomService.reserveRoom(reservationPayload);
+      console.log("Rezervasyon API yanıtı:", response);
+      alert(`Oda ${reservationPayload.roomId} için rezervasyon başarıyla oluşturuldu!`);
+      handleCloseReservationForm();
+      loadDataForView(); // Veriyi yeniden yükle
+    } catch (apiError) {
+      console.error('Rezervasyon işlemi sırasında hata (RoomStatus):', apiError);
+      const errorMessage = typeof apiError === 'string' ? apiError : (apiError.message || apiError.title || 'Rezervasyon oluşturulurken bir hata oluştu.');
+      setError(errorMessage);
+      alert(`Hata: ${errorMessage}`);
+    } finally {
+      setIsLoading(false); // Bitir
+    }
   };
 
-  // Component ilk yüklendiğinde odaları çek
-  useEffect(() => {
-    loadRoomsFromBackend();
-  }, []);
+  // Rezervasyon İptal Handler'ı
+  const handleCancelReservation = async (reservationId) => {
+    if (reservationId === null || reservationId === undefined) {
+        alert('İptal edilecek geçerli bir rezervasyon ID bulunamadı.');
+        return;
+    }
+    if (window.confirm(`Rezervasyon ID: ${reservationId} olan rezervasyonu iptal etmek istediğinize emin misiniz?`)) {
+      setIsLoading(true);
+      setError(null);
+      try {
+        await roomService.cancelReservation(reservationId);
+        alert(`Rezervasyon (ID: ${reservationId}) başarıyla iptal edildi.`);
+        handleCloseModal();
+        loadDataForView();
+      } catch (err) {
+         console.error(`Rezervasyon (ID: ${reservationId}) iptal edilirken hata:`, err);
+         const errorMessage = typeof err === 'string' ? err : (err.message || err.title || 'Rezervasyon iptal edilirken bir hata oluştu.');
+         setError(errorMessage);
+         alert(`Hata: ${errorMessage}`);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
-  // Filtreler değiştiğinde listeyi güncelle (Önceki kodla aynı)
-  useEffect(() => {
-    const applyFilters = () => {
-      let tempFiltered = [...rooms];
-      if (roomNumberSearch) {
-        tempFiltered = tempFiltered.filter(room => room.roomNumber.toLowerCase().includes(roomNumberSearch.toLowerCase()));
-      }
-      if (statusFilter) {
-        tempFiltered = tempFiltered.filter(room => room.status === statusFilter);
-      }
-      // Tarih filtrelemesi (Basit frontend kontrolü)
-      if (startDate && endDate) {
-         console.warn("Tarih filtrelemesi frontend'de yapılıyor. Backend filtrelemesi önerilir.");
-         const filterStart = new Date(startDate.setHours(0, 0, 0, 0));
-         const filterEnd = new Date(endDate.setHours(23, 59, 59, 999));
-         // Not: Bu tarih filtrelemesi takvim görünümü için mantıklı olmayabilir,
-         // takvim kendi tarih aralığını gösterdiği için bu filtreyi sadece liste görünümünde
-         // etkinleştirmek veya takvim görünümünü etkilemeyecek şekilde ayarlamak gerekebilir.
-         // Şimdilik basit tutuyoruz:
-         tempFiltered = tempFiltered.filter(room => {
-           if (room.status === 'Available') return true;
-           if (room.status === 'Occupied' && room.guest) {
-               const guestCheckIn = parseDateString(room.guest.checkInDate);
-               const guestCheckOut = parseDateString(room.guest.checkOutDate);
-               if (!guestCheckIn || !guestCheckOut) return false;
-               // Çakışma kontrolü: Oda bu aralıkta doluysa gösterme
-               const roomStart = guestCheckIn;
-               const roomEnd = guestCheckOut;
-               return !(roomStart < filterEnd && roomEnd > filterStart); // Çakışmıyorsa true
-           }
-           if(room.status === 'Under Maintenance') return true; // Bakımdakileri filtrele veya göster (isteğe bağlı)
-           return true; // Diğer durumlar için varsayılan
-         });
-      }
-      if (selectedFeatures.length > 0) {
-        tempFiltered = tempFiltered.filter(room => selectedFeatures.every(feature => Array.isArray(room.features) && room.features.includes(feature)));
-      }
-      setFilteredRooms(tempFiltered);
-    };
-    if (!isLoading) { applyFilters(); }
-  }, [rooms, roomNumberSearch, statusFilter, startDate, endDate, selectedFeatures, isLoading]);
-
-  // --- Event Handler Fonksiyonları ---
-
-  const handleRefresh = () => { loadRoomsFromBackend(); };
+  // Diğer Standard Handler'lar
+  const handleRefresh = () => { loadDataForView(); };
   const handleReserve = (room) => { setSelectedRoom(room); setShowReservationForm(true); };
   const handleViewDetails = (room) => { setSelectedRoom(room); setShowModal(true); };
-  const handleCloseModal = () => { setShowModal(false); setSelectedRoom(null); };
-  const handleCloseReservationForm = () => { setShowReservationForm(false); setSelectedRoom(null); };
-
-  // Mevcut rezervasyonu iptal etme (API Bağlantılı - Önceki kodla aynı)
-  const handleCancelReservation = async (room) => {
-    if (!room || !room.guest || !room.guest.reservationId) {
-        alert('İptal edilecek geçerli bir rezervasyon bulunamadı.'); return;
-    }
-    if (window.confirm(`${room.roomNumber} numaralı odanın rezervasyonunu (ID: ${room.guest.reservationId}) iptal etmek istediğinize emin misiniz?`)) {
-      setIsLoading(true); setError(null);
-      try {
-        await roomService.cancelReservation({ reservationId: room.guest.reservationId });
-        alert(`${room.roomNumber} numaralı oda rezervasyonu başarıyla iptal edildi.`);
-        handleCloseModal(); handleRefresh();
-      } catch (err) {
-        console.error('Rezervasyon iptal edilirken hata:', err.response?.data || err.message);
-        const cancelError = err.response?.data?.message || 'Rezervasyon iptal edilirken bir hata oluştu.';
-        setError(cancelError); alert(cancelError);
-      } finally { setIsLoading(false); }
-    }
-  };
-
-  // *** YENİ REZERVASYON OLUŞTURMA (customerId ile) ***
-  const handleCreateReservation = async (reservationFormData) => {
-    // Gelen veri: { customerId, checkInDate, checkOutDate }
-    // İsteğe bağlı: reservationFormData içinde selectedCustomerName de gelebilir.
-    console.log('handleCreateReservation gelen veri:', reservationFormData); // DEBUG
-
-    if (!selectedRoom) { setError("Rezervasyon için oda seçilmedi."); return; }
-    if (!reservationFormData.customerId) { setError("Lütfen bir müşteri seçin."); return; } // customerId kontrolü
-
-    setIsLoading(true); setError(null);
-    try {
-      // 1. Müşteri Kontrolü Adımı (idNumber ile arama) KALDIRILDI
-
-      // 2. Payload Hazırla
-      const payload = {
-        roomId: selectedRoom.id,
-        customerId: reservationFormData.customerId, // Doğrudan gelen ID kullanılıyor
-        checkInDate: formatDateForBackend(reservationFormData.checkInDate), // Helper fonksiyonu kullan
-        checkOutDate: formatDateForBackend(reservationFormData.checkOutDate), // Helper fonksiyonu kullan
-      };
-      // Tarih format kontrolü
-      if (!payload.checkInDate || !payload.checkOutDate) {
-          throw new Error('Geçersiz tarih formatı. Tarihler gönderilemedi.');
-      }
-
-      // 3. Rezervasyon API Çağrısı
-      console.log("Rezervasyon API'sine gönderilen payload:", payload); // DEBUG
-      const response = await roomService.reserveRoom(payload);
-      console.log("Rezervasyon API yanıtı:", response); // DEBUG
-
-      // Başarı mesajı
-      // Eğer ReservationForm'dan müşteri adı da gönderildiyse:
-      // const customerName = reservationFormData.selectedCustomerName || `ID: ${reservationFormData.customerId}`;
-      // Şimdilik sadece ID ile:
-      const customerName = `Müşteri ID ${reservationFormData.customerId}`;
-
-      alert(`${selectedRoom.roomNumber} numaralı oda için ${customerName} adına rezervasyon başarıyla oluşturuldu.`);
-      handleCloseReservationForm(); // Formu kapat
-      handleRefresh(); // Oda listesini yenile
-
-    } catch (err) {
-      console.error('Rezervasyon işlemi sırasında hata:', err.response?.data || err.message);
-      // API'den gelen hata mesajını göstermeye çalış
-      const apiErrorMessage = err.response?.data?.message || err.response?.data; // API yanıtına göre ayarla
-      setError(apiErrorMessage || err.message || 'Rezervasyon işlemi sırasında bilinmeyen bir hata oluştu.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-
-  // Özellik filtresi için checkbox handle'ı (Önceki kodla aynı)
+  const handleCloseModal = () => { setShowModal(false); setSelectedRoom(null); setError(null); };
+  const handleCloseReservationForm = () => { setShowReservationForm(false); setSelectedRoom(null); setError(null); };
   const handleFeatureSelect = (feature) => {
-    const updatedFeatures = selectedFeatures.includes(feature)
-      ? selectedFeatures.filter(f => f !== feature) : [...selectedFeatures, feature];
-    setSelectedFeatures(updatedFeatures);
+    setSelectedFeatures(prev => prev.includes(feature) ? prev.filter(f => f !== feature) : [...prev, feature]);
   };
 
-  // --- Render Fonksiyonları ---
 
+  // Render Fonksiyonları
   const renderLoading = () => (<div className={styles.loadingContainer}><div className={styles.spinner}></div><div className={styles.loadingText}>Yükleniyor...</div></div>);
   const renderError = () => (error && <div className={styles.errorMessage}><FaExclamationTriangle className={styles.errorIcon} />{error}</div>);
 
-  // Ana Render Metodu
+
+  // --- Ana Render (JSX) ---
   return (
       <div className={styles.roomStatusPage}>
         {/* Kontroller (Görünüm Değiştirme, Yenile) */}
@@ -308,78 +305,105 @@ const RoomStatusPage = () => {
           <button className={styles.refreshButton} onClick={handleRefresh} disabled={isLoading} title="Yenile"><FaSync className={isLoading ? styles.spinning : ''} /> YENİLE</button>
         </div>
 
+        {/* Başlık ve Hata */}
         <div className={styles.pageHeader}><h1 className={styles.pageTitle}>Oda Durumu</h1></div>
-        {renderError()}
+        {error && renderError()} {/* Hata varsa göster */}
 
-        {/* Filtreler (Önceki kodla aynı) */}
-        <div className={styles.searchFilters}>
-            <div className={styles.filterHeader}>
-                <div className={styles.filterTitle}>Filtrele & Ara</div>
-                <button className={styles.filtersButton} onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} title="Gelişmiş Filtreler">
-                <FaFilter /> {showAdvancedFilters ? 'Gizle' : 'Gelişmiş'}
-                </button>
-            </div>
-            {/* Temel Filtreler */}
-            <div className={styles.searchInputContainer}>
-                <div className={styles.inputGroup}>
-                <label htmlFor="roomNumberSearch" className={styles.inputLabel}>Oda Numarası Ara</label>
-                <input id="roomNumberSearch" type="text" className={styles.inputField} value={roomNumberSearch} onChange={(e) => setRoomNumberSearch(e.target.value)} placeholder="Oda No..." />
+        {/* Filtreler (Sadece Liste modunda) */}
+        {viewMode === 'list' && (
+            <div className={styles.searchFilters}>
+                <div className={styles.filterHeader}>
+                    <div className={styles.filterTitle}>Filtrele & Ara</div>
+                    <button className={styles.filtersButton} onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} title="Gelişmiş Filtreler">
+                    <FaFilter /> {showAdvancedFilters ? 'Gizle' : 'Gelişmiş'}
+                    </button>
                 </div>
-                <div className={styles.inputGroup}>
-                <label htmlFor="statusFilter" className={styles.inputLabel}>Durum Filtresi</label>
-                <select id="statusFilter" className={styles.selectField} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                    <option value="">Tüm Durumlar</option>
-                    <option value="Available">Müsait</option>
-                    <option value="Occupied">Dolu</option>
-                    <option value="Under Maintenance">Bakımda</option>
-                </select>
-                </div>
-            </div>
-            {/* Gelişmiş Filtreler */}
-            {showAdvancedFilters && (
-                <div className={styles.advancedFilters}>
-                    <div className={styles.dateGroup}>
-                        <label className={styles.inputLabel}>Tarih Aralığı</label>
-                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                        <DatePicker selected={startDate} onChange={(date) => setStartDate(date)} selectsStart startDate={startDate} endDate={endDate} dateFormat="dd.MM.yyyy" placeholderText="Başlangıç Tarihi" className={styles.inputField} minDate={new Date()} isClearable />
-                        <DatePicker selected={endDate} onChange={(date) => setEndDate(date)} selectsEnd startDate={startDate} endDate={endDate} minDate={startDate || new Date()} dateFormat="dd.MM.yyyy" placeholderText="Bitiş Tarihi" className={styles.inputField} disabled={!startDate} isClearable />
-                        </div>
+                {/* Temel Filtreler */}
+                <div className={styles.searchInputContainer}>
+                    {/* Oda Numarası Input */}
+                    <div className={styles.inputGroup}>
+                        <label htmlFor="roomNumberSearch" className={styles.inputLabel}>Oda Numarası Ara</label>
+                        <input id="roomNumberSearch" type="text" className={styles.inputField} value={roomNumberSearch} onChange={(e) => setRoomNumberSearch(e.target.value)} placeholder="Oda No..." />
                     </div>
-                    <div className={styles.featureGroup}>
-                        <label className={styles.inputLabel}>Oda Özellikleri</label>
-                        <div className={styles.featureCheckboxGroup}>
-                            {['Wi-Fi', 'TV', 'Air Conditioning', 'Mini Bar', 'Balcony', 'Jacuzzi', 'Coffee Machine'].map(feature => (
-                                <label key={feature} className={styles.featureLabel}><input type="checkbox" checked={selectedFeatures.includes(feature)} onChange={() => handleFeatureSelect(feature)} /> {feature}</label>
-                            ))}
-                        </div>
+                    {/* Durum Select */}
+                    <div className={styles.inputGroup}>
+                        <label htmlFor="statusFilter" className={styles.inputLabel}>Durum Filtresi</label>
+                        <select id="statusFilter" className={styles.selectField} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                            <option value="">Tüm Durumlar</option>
+                            <option value="Available">Müsait</option>
+                            <option value="Occupied">Dolu</option>
+                            <option value="Maintenance">Bakımda</option>
+                        </select>
                     </div>
                 </div>
-            )}
-        </div>
+                {/* Gelişmiş Filtreler */}
+                {showAdvancedFilters && (
+                    <div className={styles.advancedFilters}>
+                        {/* Tarih Aralığı Seçici */}
+                        <div className={styles.dateGroup}>
+                            <label className={styles.inputLabel}>Müsaitlik Tarih Aralığı</label>
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                <DatePicker selected={startDate} onChange={(date) => setStartDate(date)} selectsStart startDate={startDate} endDate={endDate} dateFormat="dd.MM.yyyy" placeholderText="Başlangıç Tarihi" className={styles.inputField} isClearable />
+                                <DatePicker selected={endDate} onChange={(date) => setEndDate(date)} selectsEnd startDate={startDate} endDate={endDate} minDate={startDate} dateFormat="dd.MM.yyyy" placeholderText="Bitiş Tarihi" className={styles.inputField} disabled={!startDate} isClearable />
+                            </div>
+                        </div>
+                         {/* Özellik Seçici */}
+                        <div className={styles.featureGroup}>
+                            <label className={styles.inputLabel}>Oda Özellikleri</label>
+                            <div className={styles.featureCheckboxGroup}>
+                                {['Wi-Fi', 'TV', 'Air Conditioning', 'Mini Bar', 'Balcony', 'Jacuzzi', 'Coffee Machine'].map(feature => (
+                                    <label key={feature} className={styles.featureLabel}><input type="checkbox" checked={selectedFeatures.includes(feature)} onChange={() => handleFeatureSelect(feature)} /> {feature}</label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        )} {/* viewMode === 'list' sonu */}
+
 
         {/* İçerik Alanı (Liste veya Takvim) */}
-        {isLoading ? renderLoading() : (
-          !error && (
+        {/* Hata yoksa ve yüklenmiyorsa içeriği göster */}
+        {!isLoading && !error && (
              <>
                 {viewMode === 'list' && (
-                <div className={styles.roomGrid}>
-                    {filteredRooms.length > 0 ? (
-                        filteredRooms.map(room => <RoomCard key={room.id} room={room} onReserve={handleReserve} onViewDetails={handleViewDetails} />)
-                    ) : (<div className={styles.noRoomsMessage}>Aradığınız kriterlere uygun oda bulunamadı.</div>)}
-                </div>
+                  // Liste görünümü: filteredRooms'u map et
+                  <div className={styles.roomGrid}>
+                      {/* filteredRooms boş değilse kartları göster */}
+                      {filteredRooms && filteredRooms.length > 0 ? (
+                          filteredRooms.map(room => <RoomCard key={room.id} room={room} onReserve={handleReserve} onViewDetails={handleViewDetails} />)
+                      ) : (
+                          // filteredRooms boşsa (filtre sonucu veya veri yoksa)
+                          <div className={styles.noRoomsMessage}>Aradığınız kriterlere uygun oda bulunamadı.</div>
+                      )}
+                  </div>
                 )}
-                {/* Takvim görünümüne filtrelenmiş odalar gönderiliyor */}
                 {viewMode === 'calendar' && (
-                    <CalendarView rooms={filteredRooms} onViewDetails={handleViewDetails} onReserve={handleReserve} />
+                  // Takvim görünümü: rooms (takvim formatındaki veri) ve callback'i gönder
+                  <CalendarView
+                      rooms={rooms} // Direkt backend'den gelen takvim verisini gönder
+                      onViewDetails={handleViewDetails}
+                      onReserve={handleReserve} // Takvimden rezervasyon? Opsiyonel.
+                      onWeekChange={handleCalendarWeekChange} // Hafta değişikliği callback'i
+                      // Takvime mevcut hafta başlangıcını prop olarak gönderiyoruz
+                      displayWeekStart={calendarWeekStart}
+                  />
                 )}
              </>
-           )
         )}
+        {/* Yükleniyorsa yüklenme göstergesini göster */}
+        {isLoading && renderLoading()}
+
 
         {/* Modallar */}
         {showModal && selectedRoom && <RoomDetailModal room={selectedRoom} onClose={handleCloseModal} onCancelReservation={handleCancelReservation} onReserve={handleReserve} />}
-        {/* ReservationForm'a handleCreateReservation prop'u doğru şekilde geçiliyor */}
-        {showReservationForm && selectedRoom && <ReservationForm room={selectedRoom} onClose={handleCloseReservationForm} onCreateReservation={handleCreateReservation} />}
+        {showReservationForm && selectedRoom && (
+          <ReservationForm
+            room={selectedRoom} // Seçili odayı prop olarak geç
+            onClose={handleCloseReservationForm}
+            onCreateReservation={handleCreateReservation} // Handler fonksiyonunu prop olarak geç
+          />
+        )}
 
       </div>
   );

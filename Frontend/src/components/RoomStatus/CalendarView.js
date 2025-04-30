@@ -1,282 +1,294 @@
-import React, { useState, useEffect } from 'react';
-import { FaChevronLeft, FaChevronRight, FaCalendarAlt } from 'react-icons/fa';
-import styles from './CalendarView.module.css';
+// src/components/RoomStatus/CalendarView.js
 
-const CalendarView = ({ rooms, onViewDetails }) => {
-  const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()));
-  const [daysToShow, setDaysToShow] = useState([]);
-  const [roomData, setRoomData] = useState([]);
+import React, { useState, useMemo, useCallback } from 'react';
+// Gerekli date-fns fonksiyonları
+import {
+    format,
+    addDays,
+    startOfWeek,
+    endOfWeek,
+    startOfMonth, // Callback için kullanılabilir
+    endOfMonth,   // Callback için kullanılabilir
+    addWeeks,
+    subWeeks,
+    isSameMonth, // Hücre stilini ayarlamak için (artık çok kritik değil)
+    isEqual,    // goToCurrentWeek kontrolü için
+    parseISO,   // API'den gelen tarihi parse etmek için
+    startOfDay  // isToday kontrolü için
+} from 'date-fns';
+import { tr } from 'date-fns/locale'; // Türkçe locale
+import { FaChevronLeft, FaChevronRight, FaCalendarAlt } from 'react-icons/fa'; // İkonlar
+import styles from './CalendarView.module.css'; // Doğru CSS modülü
 
-  // Initialize the days to show when component mounts or week changes
-  useEffect(() => {
-    const days = [];
-    for (let i = 0; i < 14; i++) { // Show 2 weeks
-      const day = new Date(currentWeekStart);
-      day.setDate(currentWeekStart.getDate() + i);
-      days.push(day);
+// --- Helper Fonksiyonlar ---
+
+// Tarihi 'yyyy-MM-dd' formatına çevirir (API yanıtındaki date ile eşleştirmek için)
+const formatDateKey = (date) => {
+    try {
+        // Gelenin Date objesi olduğundan emin ol
+        const dateObj = (date instanceof Date) ? date : parseISO(String(date));
+        return format(dateObj, 'yyyy-MM-dd');
+    } catch (e) {
+        console.error("formatDateKey error:", date, e);
+        return null;
     }
-    setDaysToShow(days);
-  }, [currentWeekStart]);
-
-  // Process room data for easier display
-  useEffect(() => {
-    if (!rooms || !daysToShow.length) return;
-
-    const processedRooms = rooms.map(room => {
-      const roomStatusByDay = {};
-      
-      daysToShow.forEach(day => {
-        roomStatusByDay[formatDateKey(day)] = getRoomStatusForDate(room, day);
-      });
-      
-      return {
-        ...room,
-        statusByDay: roomStatusByDay
-      };
-    });
-    
-    setRoomData(processedRooms);
-  }, [rooms, daysToShow]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Get the status for a specific room on a specific date
-  const getRoomStatusForDate = (room, date) => {
-    // Handle maintenance status
-    if (room.status === 'Under Maintenance') {
-      return {
-        status: 'Under Maintenance',
-        info: room.maintenance?.issue || 'Bakımda',
-        guest: null
-      };
-    }
-    
-    // Handle occupied status with check-in/out dates
-    if (room.status === 'Occupied' && room.guest) {
-      const checkInDate = parseDate(room.guest.checkInDate);
-      const checkOutDate = parseDate(room.guest.checkOutDate);
-      
-      // Check if date falls between check-in and check-out
-      if (checkInDate && checkOutDate && date >= checkInDate && date < checkOutDate) {
-        return {
-          status: 'Occupied',
-          info: room.guest.name,
-          guest: room.guest,
-          checkInDate: room.guest.checkInDate,
-          checkOutDate: room.guest.checkOutDate
-        };
-      }
-    }
-    
-    // Default to available
-    return {
-      status: 'Available',
-      info: 'Müsait',
-      guest: null
-    };
-  };
-
-  // Get the Monday of the current week
-  function getStartOfWeek(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-    return new Date(d.setDate(diff));
-  }
-
-  // Parse date from "DD.MM.YYYY" format
-  const parseDate = (dateString) => {
-    if (!dateString) return null;
-    
-    const parts = dateString.split('.');
-    if (parts.length !== 3) return null;
-    
-    return new Date(parts[2], parts[1] - 1, parts[0]);
-  };
-
-  // Format date to "DD/MM" format for display
-  const formatDateDisplay = (date) => {
-    return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-  };
-
-  // Format date to "YYYY-MM-DD" for keys
-  const formatDateKey = (date) => {
-    return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
-  };
-  
-  // Format date to standard ISO string "YYYY-MM-DD"
-  const formatISODate = (date) => {
-    return date.toISOString().split('T')[0];
-  };
-  
-  // Format date to "DD.MM.YYYY" format
-  const formatDateDMY = (date) => {
-    return `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()}`;
-  };
-
-  // Format full date range for display
-  const formatDateRange = () => {
-    if (!daysToShow.length) return '';
-    
-    const firstDay = daysToShow[0];
-    const lastDay = daysToShow[daysToShow.length - 1];
-    
-    return `${firstDay.getDate().toString().padStart(2, '0')}.${(firstDay.getMonth() + 1).toString().padStart(2, '0')}.${firstDay.getFullYear()} - ${lastDay.getDate().toString().padStart(2, '0')}.${(lastDay.getMonth() + 1).toString().padStart(2, '0')}.${lastDay.getFullYear()}`;
-  };
-
-  // Get day name for display (Mon, Tue, etc.)
-  const getDayName = (date) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return days[date.getDay()];
-  };
-
-  // Get status color class
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'Available':
-        return styles.available;
-      case 'Occupied':
-        return styles.occupied;
-      case 'Under Maintenance':
-        return styles.maintenance;
-      default:
-        return styles.available;
-    }
-  };
-
-  // Navigate to previous week
-  const goToPreviousWeek = () => {
-    const prevWeek = new Date(currentWeekStart);
-    prevWeek.setDate(currentWeekStart.getDate() - 14); // 2 weeks back
-    setCurrentWeekStart(prevWeek);
-  };
-
-  // Navigate to next week
-  const goToNextWeek = () => {
-    const nextWeek = new Date(currentWeekStart);
-    nextWeek.setDate(currentWeekStart.getDate() + 14); // 2 weeks forward
-    setCurrentWeekStart(nextWeek);
-  };
-
-  // Go to current week
-  const goToToday = () => {
-    setCurrentWeekStart(getStartOfWeek(new Date()));
-  };
-
-  // Handle cell click with both room and date info
-  const handleCellClick = (roomId, date, status) => {
-    if (!onViewDetails) return;
-    
-    // Find the original room object
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
-    
-    // Create a modified room object with date and status information
-    const roomWithDateInfo = {
-      ...room,
-      selectedDate: formatISODate(date),
-      displayDate: formatDateDMY(date),
-      
-      // Override status based on the cell's status for this specific date
-      status: status.status,
-      
-      // If occupied, include the guest information
-      guest: status.status === 'Occupied' ? status.guest : null,
-      
-      // If under maintenance, include maintenance info
-      maintenance: status.status === 'Under Maintenance' 
-        ? { issue: status.info } 
-        : room.maintenance
-    };
-    
-    onViewDetails(roomWithDateInfo);
-  };
-
-  // Handle room name cell click
-  const handleRoomNumberClick = (roomId) => {
-    if (!onViewDetails) return;
-    
-    // Find the original room object by ID
-    const originalRoom = rooms.find(r => r.id === roomId);
-    if (originalRoom) {
-      onViewDetails(originalRoom);
-    }
-  };
-
-  // Check if date is today
-  const isToday = (date) => {
-    const today = new Date();
-    return date.getDate() === today.getDate() && 
-           date.getMonth() === today.getMonth() && 
-           date.getFullYear() === today.getFullYear();
-  };
-
-  return (
-    <div className={styles.calendarContainer}>
-      {/* Calendar Navigation */}
-      <div className={styles.calendarNavigation}>
-        <div className={styles.dateRangeDisplay}>
-          <button className={styles.navButton} onClick={goToPreviousWeek}>
-            <FaChevronLeft />
-          </button>
-          <span className={styles.dateRange}>{formatDateRange()}</span>
-          <button className={styles.navButton} onClick={goToNextWeek}>
-            <FaChevronRight />
-          </button>
-        </div>
-        <button className={styles.todayButton} onClick={goToToday}>
-          <FaCalendarAlt /> BUGÜN
-        </button>
-      </div>
-
-      {/* Calendar Grid */}
-      <div className={styles.calendarGridContainer}>
-        <table className={styles.calendarTable}>
-          <thead>
-            <tr className={styles.headerRow}>
-              <th className={styles.roomHeader}>Oda / Tarih</th>
-              {daysToShow.map((day, index) => (
-                <th 
-                  key={index} 
-                  className={`${styles.dateHeader} ${isToday(day) ? styles.today : ''}`}
-                >
-                  <div className={styles.dateHeaderContent}>
-                    <div className={styles.dayName}>{getDayName(day)}</div>
-                    <div className={styles.dayNumber}>{formatDateDisplay(day)}</div>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {roomData.map((room) => (
-              <tr key={room.id} className={styles.roomRow}>
-                <td className={styles.roomCell} onClick={() => handleRoomNumberClick(room.id)}>
-                  {room.roomNumber}
-                </td>
-                {daysToShow.map((day, index) => {
-                  const dateKey = formatDateKey(day);
-                  const status = room.statusByDay[dateKey];
-                  return (
-                    <td 
-                      key={index} 
-                      className={`${styles.statusCell} ${getStatusClass(status?.status)}`}
-                      onClick={() => handleCellClick(room.id, day, status)}
-                      title={`${room.roomNumber} - ${status?.status || 'Available'} - ${status?.info || ''}`}
-                    >
-                      <div className={styles.cellContent}>
-                        {status?.status === 'Occupied' && (
-                          <div className={styles.guestInfo}>{status.info}</div>
-                        )}
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
 };
 
-export default CalendarView; 
+// Verilen tarihin bugün olup olmadığını kontrol eder
+const isToday = (date) => {
+    try {
+        const dateObj = (date instanceof Date) ? date : parseISO(String(date));
+        // Zamanı sıfırlayarak sadece gün karşılaştırması yap
+        const todayStart = startOfDay(new Date());
+        const dateStart = startOfDay(dateObj);
+        return isEqual(todayStart, dateStart); // isEqual günleri karşılaştırır
+    } catch (e) {
+        console.error("isToday error:", date, e);
+        return false;
+    }
+};
+
+// Haftalık aralığı formatlayan helper (örn: "28 Nis - 04 May 2025")
+const formatWeekRange = (startDate) => {
+    // Başlangıç tarihi geçerli bir Date objesi değilse hata mesajı döndür
+    if (!startDate || !(startDate instanceof Date) || isNaN(startDate.getTime())) {
+        console.warn("formatWeekRange geçersiz başlangıç tarihi aldı:", startDate);
+        return "Tarih Aralığı Belirsiz";
+    }
+    try {
+        // Haftanın son gününü hesapla (Pazar)
+        const endDate = endOfWeek(startDate, { locale: tr, weekStartsOn: 1 });
+        // Başlangıç ve bitişi formatla
+        const startFormat = format(startDate, 'd MMM', { locale: tr });
+        const endFormat = format(endDate, 'd MMM yyyy', { locale: tr }); // Yılı sona ekle
+        return `${startFormat} - ${endFormat}`;
+    } catch (e) {
+        console.error("formatWeekRange error:", startDate, e);
+        return "Hata";
+    }
+};
+
+
+// --- CalendarView Bileşeni ---
+// Props: rooms, onViewDetails, onReserve, onWeekChange (callback), displayWeekStart (gösterilecek hafta)
+const CalendarView = ({ rooms = [], onViewDetails, onReserve, onWeekChange, displayWeekStart }) => {
+
+    // --- State YOK ---
+    // Gösterilecek hafta bilgisi prop olarak alınıyor (displayWeekStart)
+
+    // --- Gösterilecek 7 Günü Hesapla (Prop'a göre useMemo ile) ---
+    const daysToShow = useMemo(() => {
+        // Eğer prop olarak geçerli bir tarih gelmediyse boş dizi döndür
+        if (!displayWeekStart || !(displayWeekStart instanceof Date) || isNaN(displayWeekStart.getTime())) {
+            console.warn("CalendarView: Geçersiz displayWeekStart prop'u alındı:", displayWeekStart);
+            return [];
+        }
+        const days = [];
+        // Prop olarak gelen haftanın başlangıcından itibaren 7 gün ekle
+        for (let i = 0; i < 7; i++) {
+            days.push(addDays(displayWeekStart, i));
+        }
+        return days;
+    }, [displayWeekStart]); // displayWeekStart prop'u değişince yeniden hesaplanır
+
+
+    // --- Callback ile Hafta Değişikliğini Bildir ---
+    // Navigasyon fonksiyonları içinde bu callback çağrılacak
+    const notifyWeekChange = useCallback((newWeekStartDate) => {
+        // Prop olarak gelen fonksiyon varsa çağır
+        if (onWeekChange) {
+            // Üst bileşene yeni haftanın başlangıç ve bitişini bildir
+            const newWeekEndDate = endOfWeek(newWeekStartDate, { locale: tr, weekStartsOn: 1 });
+            console.log("Yeni hafta aralığı bildiriliyor:", newWeekStartDate, newWeekEndDate);
+            onWeekChange(newWeekStartDate, newWeekEndDate);
+        }
+    }, [onWeekChange]); // onWeekChange prop'u değişirse fonksiyon yeniden oluşur
+
+    // --- Haftalık Navigasyon Fonksiyonları (useCallback ile) ---
+    // Butonlar sadece üst bileşeni bilgilendirir, state'i üst bileşen yönetir
+    const nextWeek = useCallback(() => {
+        if (!displayWeekStart) return; // Geçerli tarih yoksa bir şey yapma
+        const nextWeekStartDate = addWeeks(displayWeekStart, 1);
+        notifyWeekChange(nextWeekStartDate); // Üst bileşeni bilgilendir
+    }, [displayWeekStart, notifyWeekChange]);
+
+    const prevWeek = useCallback(() => {
+        if (!displayWeekStart) return;
+        const prevWeekStartDate = subWeeks(displayWeekStart, 1);
+        notifyWeekChange(prevWeekStartDate);
+    }, [displayWeekStart, notifyWeekChange]);
+
+    const goToCurrentWeek = useCallback(() => {
+        if (!displayWeekStart) return;
+        const todayWeekStart = startOfWeek(new Date(), { locale: tr, weekStartsOn: 1 });
+        // Sadece mevcut gösterilen haftadan farklıysa üst bileşeni bilgilendir
+        if (!isEqual(startOfDay(displayWeekStart), startOfDay(todayWeekStart))) {
+             notifyWeekChange(todayWeekStart);
+        }
+    }, [displayWeekStart, notifyWeekChange]);
+
+
+    // --- Status Sınıfını Belirle ---
+    // API'den gelen status string'ine göre CSS sınıfı döndürür
+    const getStatusClass = (statusString) => {
+        const status = statusString || 'Available'; // Default
+        switch (status) {
+            case 'Occupied': return styles.occupied;
+            case 'Maintenance': return styles.maintenance;
+            default: return styles.available;
+        }
+    };
+
+    // --- Olay Yöneticileri (Handlers) ---
+    // Takvim hücresine tıklandığında çalışır
+    const handleCellClick = (room, dailyStatus) => {
+        if (!onViewDetails) return;
+
+        // Tıklanan hücre için durum bilgisi yoksa da modal açılabilir (opsiyonel)
+        const clickedDate = dailyStatus ? parseISO(dailyStatus.date) : null; // dailyStatus yoksa tarih null
+        if (!clickedDate) {
+            console.warn("Tıklanan hücre için tarih bilgisi bulunamadı.");
+            // İstersen burada da modal açabilirsin ama sadece oda bilgisiyle
+            return;
+        }
+
+        try {
+            // Modal'a gönderilecek veriyi API yanıtından ve oda bilgisinden oluştur
+            const roomForModal = {
+                id: room.roomId,
+                roomNumber: room.roomNumber,
+                roomType: room.roomType,
+                // Diğer temel oda bilgileri (room objesinde varsa)
+                // capacity: room.capacity,
+                // features: room.features,
+                selectedDate: clickedDate.toISOString(),
+                displayDate: format(clickedDate, 'dd.MM.yyyy EEEE', { locale: tr }),
+                // dailyStatus varsa oradan, yoksa 'Available' al
+                computedStatus: dailyStatus?.status || 'Available',
+                occupantName: dailyStatus?.occupantName || null,
+                currentReservationId: dailyStatus?.reservationId || null,
+                occupantCheckInDate: null, // Bu endpoint'te yok
+                occupantCheckOutDate: null, // Bu endpoint'te yok
+                description: dailyStatus?.status === 'Maintenance' ? 'Oda bakımda' : (room.description || ''),
+            };
+            console.log("Modal'a gönderilen veri:", roomForModal);
+            onViewDetails(roomForModal); // Üst bileşendeki fonksiyonu çağır
+        } catch (error) {
+             console.error("Modal verisi oluşturulurken hata:", error, "Gelen dailyStatus:", dailyStatus);
+        }
+    };
+
+    // Oda numarasına tıklama (Opsiyonel)
+    const handleRoomNumberClick = (room) => {
+        console.log("Oda numarasına tıklandı:", room);
+        // Farklı bir modal veya işlem tetiklenebilir
+    };
+
+    // --- Render Fonksiyonları ---
+
+    // Haftanın günlerini gösteren başlık
+    const renderHeader = () => {
+         if (daysToShow.length === 0) return <div className={styles.daysHeader}><div className={styles.roomHeaderPlaceholder}>Oda</div></div>;
+         const headerCells = [];
+         for (let i = 0; i < 7; i++) {
+             const day = daysToShow[i];
+             headerCells.push(
+                 <div className={styles.dayHeaderCell} key={i}>
+                     {format(day, 'eee', { locale: tr })} {/* Pzt, Sal... */}
+                     <span className={styles.headerDayNumber}> {format(day, 'd')}</span> {/* 1, 2... */}
+                 </div>
+             );
+         }
+         return (
+             <div className={styles.daysHeader}>
+                 <div className={styles.roomHeaderPlaceholder}>Oda</div>
+                 {headerCells}
+             </div>
+         );
+    };
+
+
+    // Oda satırlarını ve günlük durum hücrelerini render et
+    const renderDays = () => {
+        // rooms prop'u boşsa veya yükleniyorsa mesaj göster
+        if (!rooms || rooms.length === 0) {
+             // isLoading prop'u olmadığı için rooms'un varlığına göre karar ver
+             return (
+                 <div className={styles.loadingOrEmptyCell}>
+                    {rooms === null || rooms === undefined ? "Yükleniyor..." : "Gösterilecek oda verisi bulunamadı."}
+                 </div>
+             );
+         }
+
+        // Odaları map ederek her oda için bir satır oluştur
+        return rooms.map(room => (
+            <div className={styles.calendarRow} key={room.roomId}>
+                {/* Oda Etiketi */}
+                <div className={styles.calendarRoomLabel} onClick={() => handleRoomNumberClick(room)}>
+                    {room.roomNumber}
+                    {room.roomType && <div className={styles.calendarRoomType}>{room.roomType}</div>}
+                </div>
+                {/* Günlük Durum Hücreleri Konteyneri */}
+                <div className={styles.calendarDaysContainer}>
+                    {daysToShow.map(day => {
+                        const dateKey = formatDateKey(day);
+                        // O gün için API'den gelen durumu bul
+                        const dailyStatus = room.dailyStatuses?.find(ds => ds.date === dateKey);
+
+                        return (
+                            // Tek bir gün/oda hücresi
+                            <div
+                              key={`${room.roomId}-${dateKey}`}
+                              className={`
+                                ${styles.roomDayCell}
+                                ${getStatusClass(dailyStatus?.status)}
+                                {/* Takvim hep aynı haftayı gösterdiği için isSameMonth kontrolü gereksiz */}
+                                ${isToday(day) ? styles.todayHighlight : ''}
+                              `}
+                              onClick={() => handleCellClick(room, dailyStatus)}
+                              title={`${room.roomNumber} - ${format(day, 'd MMM', {locale: tr})} - ${dailyStatus?.status || 'Müsait'}`}
+                            >
+                              {/* Hücre içeriği */}
+                              {dailyStatus?.status === 'Occupied' && dailyStatus?.occupantName && (
+                                  <span className={styles.cellOccupantName}>{dailyStatus.occupantName}</span>
+                              )}
+                              {dailyStatus?.status === 'Maintenance' && (
+                                  <span className={styles.cellMaintenanceText}>Bakımda</span>
+                              )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        ));
+    }; // renderDays sonu
+
+
+    // --- Ana Render (JSX) ---
+    return (
+        <div className={styles.calendarContainer}>
+            {/* Navigasyon */}
+            <div className={styles.calendarNav}>
+                <button onClick={prevWeek} className={styles.navButton} aria-label="Önceki Hafta"><FaChevronLeft /></button>
+                <span className={styles.weekRangeLabel}>
+                  {/* Haftalık aralığı göster */}
+                  {displayWeekStart ? formatWeekRange(displayWeekStart) : "Tarih Aralığı Yükleniyor..."}
+                </span>
+                <button onClick={nextWeek} className={styles.navButton} aria-label="Sonraki Hafta"><FaChevronRight /></button>
+                <button className={styles.todayButton} onClick={goToCurrentWeek}>
+                  <FaCalendarAlt /> BU HAFTA
+                </button>
+            </div>
+
+            {/* Takvim Grid */}
+            <div className={styles.calendarGrid}>
+                {renderHeader()} {/* Hafta Günleri Başlığı */}
+                <div className={styles.calendarGridBody}>
+                    {renderDays()}   {/* Oda Satırları */}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default CalendarView;

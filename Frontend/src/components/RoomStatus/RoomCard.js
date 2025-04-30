@@ -1,36 +1,35 @@
 import React from 'react';
-import { FaTv, FaWineGlassAlt, FaWifi, FaInfoCircle, FaCalendarCheck } from 'react-icons/fa';
+// Gerekli ikonları import et (önceki adımdan)
+import {
+  FaTv, FaWineGlassAlt, FaWifi, FaInfoCircle, FaCalendarCheck,
+  FaSnowflake, FaHotTub, FaDoorOpen, FaCoffee
+} from 'react-icons/fa';
 import styles from './RoomStatus.module.css';
 
+// Tarihleri daha okunabilir bir formata çevirmek için yardımcı fonksiyon
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  try {
+    return new Date(dateString).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch (error) {
+    console.error("Tarih formatlama hatası:", error);
+    return dateString;
+  }
+};
+
 const RoomCard = ({ room, onReserve, onViewDetails }) => {
+
+  // Durum sınıfını API yanıtındaki `computedStatus` alanına göre alır
   const getStatusClass = () => {
-    switch (room.status) {
+    switch (room.computedStatus) {
       case 'Available':
         return styles.available;
       case 'Occupied':
         return styles.occupied;
-      case 'Under Maintenance':
+      case 'Maintenance':
         return styles.maintenance;
       default:
         return styles.available;
-    }
-  };
-
-  // Oda tipine veya numarasına göre varsayılan resim seç
-  const getRoomImage = () => {
-    // Eğer odanın kendi fotoğrafı varsa onu kullan
-    if (room.imageUrl) {
-      return room.imageUrl;
-    }
-
-    // Yoksa varsayılan resimler arasından seç
-    // Basitleştirilmiş: oda kapasitesine göre tek veya çift kişilik resim seçme
-    if (room.capacity.includes('2')) {
-      return `/images/rooms/double_room.jpg`;
-    } else if (room.capacity.includes('4')) {
-      return `/images/rooms/quad_standard_1.jpg`;
-    } else {
-      return `/images/rooms/single_room.jpg`;
     }
   };
 
@@ -38,66 +37,58 @@ const RoomCard = ({ room, onReserve, onViewDetails }) => {
     <div className={styles.roomCard}>
       <div className={`${styles.roomHeader} ${getStatusClass()}`}>
         <div className={styles.roomNumber}>{room.roomNumber}</div>
-        <div className={styles.roomCapacity}>{room.capacity}</div>
-      </div>
-      
-      <div className={styles.roomImageContainer}>
-        <img 
-          src={getRoomImage()} 
-          alt={`Room ${room.roomNumber}`} 
-          className={styles.roomImage}
-          onError={(e) => {
-            // Resim yüklenemezse varsayılan resme dön
-            e.target.src = '/images/rooms/default_room.jpg';
-          }}
-        />
+        <div className={styles.roomCapacity}>{room.capacity} kişi</div>
       </div>
 
       <div className={styles.roomContent}>
+        {/* Oda Özellikleri */}
         <div className={styles.roomFeatures}>
-          {room.features.includes('TV') && (
-            <div className={styles.featureItem}>
-              <FaTv className={styles.featureIcon} /> TV
-            </div>
-          )}
-          {room.features.includes('Minibar') && (
-            <div className={styles.featureItem}>
-              <FaWineGlassAlt className={styles.featureIcon} /> Minibar
-            </div>
-          )}
-          {room.features.includes('Wi-Fi') && (
-            <div className={styles.featureItem}>
-              <FaWifi className={styles.featureIcon} /> Wi-Fi
-            </div>
-          )}
+           {/* ... ikonlar ... */}
+           {room.features?.includes('TV') && (<div className={styles.featureItem}><FaTv className={styles.featureIcon} /> TV</div>)}
+           {room.features?.includes('Minibar') && (<div className={styles.featureItem}><FaWineGlassAlt className={styles.featureIcon} /> Minibar</div>)}
+           {room.features?.includes('Wi-Fi') && (<div className={styles.featureItem}><FaWifi className={styles.featureIcon} /> Wi-Fi</div>)}
+           {room.features?.includes('Air Conditioning') && (<div className={styles.featureItem}><FaSnowflake className={styles.featureIcon} /> Klima</div>)}
+           {room.features?.includes('Jacuzzi') && (<div className={styles.featureItem}><FaHotTub className={styles.featureIcon} /> Jakuzi</div>)}
+           {room.features?.includes('Balcony') && (<div className={styles.featureItem}><FaDoorOpen className={styles.featureIcon} /> Balkon</div>)}
+           {room.features?.includes('Coffee Machine') && (<div className={styles.featureItem}><FaCoffee className={styles.featureIcon} /> Kahve Mak.</div>)}
         </div>
 
+        {/* Fiyat */}
         <div className={styles.roomPrice}>
           Gecelik Fiyat: ₺{room.pricePerNight}
         </div>
 
-        {room.status === 'Occupied' && room.guest && (
+        {/* --- DURUMA GÖRE GÖSTERİLEN BİLGİLER --- */}
+
+        {/* Eğer oda 'Available' ise Açıklamayı göster */}
+        {room.computedStatus === 'Available' && room.description && (
+          <div className={styles.descriptionInfo}> {/* CSS için yeni sınıf */}
+            <p>{room.description}</p>
+          </div>
+        )}
+
+        {/* Eğer oda 'Occupied' ise Misafir Bilgilerini göster */}
+        {room.computedStatus === 'Occupied' && room.occupantName && (
           <div className={styles.guestInfo}>
             <div className={styles.guestName}>
-              Misafir: {room.guest.name}
+              Misafir: {room.occupantName}
             </div>
             <div className={styles.dateRange}>
-              Giriş/Çıkış: {room.guest.checkInDate} - {room.guest.checkOutDate}
+              Giriş/Çıkış: {formatDate(room.occupantCheckInDate)} - {formatDate(room.occupantCheckOutDate)}
             </div>
           </div>
         )}
 
-        {room.status === 'Under Maintenance' && room.maintenance && (
-          <div className={styles.maintenanceInfo}>
-            <div className={styles.issueLabel}>
-              Bakım: {room.maintenance.issue}
-            </div>
-            <div className={styles.dateRange}>
-              Tahmini Bitiş: {room.maintenance.estimatedCompletionDate}
-            </div>
-          </div>
+        {/* Eğer oda 'Maintenance' ise Bakım Bilgisini göster */}
+        {room.computedStatus === 'Maintenance' && (
+           <div className={styles.maintenanceInfo}>
+             <p>Oda şu anda bakımda.</p>
+           </div>
         )}
+        {/* --- DURUMA GÖRE GÖSTERİLEN BİLGİLER SONU --- */}
 
+
+        {/* Butonlar */}
         <div className={styles.cardButtons}>
           <button
             className={styles.detailsButton}
@@ -105,8 +96,9 @@ const RoomCard = ({ room, onReserve, onViewDetails }) => {
           >
             <FaInfoCircle className={styles.buttonIcon} /> DETAYLAR
           </button>
-          
-          {room.status === 'Available' && (
+
+          {/* Rezervasyon butonu sadece 'Available' durumunda görünür */}
+          {room.computedStatus === 'Available' && (
             <button
               className={styles.reserveButton}
               onClick={() => onReserve(room)}
@@ -120,4 +112,4 @@ const RoomCard = ({ room, onReserve, onViewDetails }) => {
   );
 };
 
-export default RoomCard; 
+export default RoomCard;
