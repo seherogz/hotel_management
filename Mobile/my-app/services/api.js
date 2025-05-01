@@ -562,21 +562,112 @@ export const reservationService = {
     try {
       const token = await getAuthToken();
       if (!token) throw new Error('Authentication required');
-      const response = await fetch(`${API_BASE_URL}/v1/Reservation/check-in`, {
+
+      // API'nin istediği gerçek endpoint ve metod: POST /v1/Reservation/{id}/check-in
+      const response = await fetch(`${API_BASE_URL}/v1/Reservation/${reservationId}/check-in`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ reservationId }),
+        // Boş body ile istek yapıyoruz, ID zaten URL'de
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Check-in işlemi başarısız.');
+
+      const responseText = await response.text();
+      let data = {};
+      
+      if (responseText && responseText.trim() !== '') {
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          // Empty or non-JSON response, but could still be successful
+        }
       }
-      return data;
+      
+      if (!response.ok) {
+        throw new Error(data.message || `Check-in işlemi başarısız (HTTP Kodu: ${response.status}).`);
+      }
+
+      return data || { success: true };
     } catch (error) {
       console.error('Error during check-in:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Check-out action for a reservation
+   * @param {number|string} reservationId
+   * @returns {Promise<Object>} - Response from the API
+   */
+  checkOut: async (reservationId) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required');
+
+      // API'nin istediği gerçek endpoint ve metod: POST /v1/Reservation/{id}/check-out
+      const response = await fetch(`${API_BASE_URL}/v1/Reservation/${reservationId}/check-out`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        // Boş body ile istek yapıyoruz, ID zaten URL'de
+      });
+
+      const responseText = await response.text();
+      let data = {};
+      
+      if (responseText && responseText.trim() !== '') {
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          // Empty or non-JSON response, but could still be successful
+        }
+      }
+      
+      if (!response.ok) {
+        throw new Error(data.message || `Check-out işlemi başarısız (HTTP Kodu: ${response.status}).`);
+      }
+
+      return data || { success: true };
+    } catch (error) {
+      console.error('Error during check-out:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Get check-outs with optional filters
+   * @param {Object} params - Filter params: { pageNumber, pageSize, checkOutDate, reservationId, customerName }
+   * @returns {Promise<Object>} - Paged response with check-outs
+   */
+  getCheckOuts: async ({ pageNumber = 1, pageSize = 10, checkOutDate = '', reservationId = '', customerName = '' } = {}) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required');
+
+      let url = `${API_BASE_URL}/v1/Reservation/check-outs?PageNumber=${pageNumber}&PageSize=${pageSize}`;
+      if (checkOutDate) url += `&CheckOutDate=${encodeURIComponent(checkOutDate)}`;
+      if (reservationId) url += `&ReservationId=${encodeURIComponent(reservationId)}`;
+      if (customerName) url += `&CustomerName=${encodeURIComponent(customerName)}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch check-outs');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching check-outs:', error);
       throw error;
     }
   },

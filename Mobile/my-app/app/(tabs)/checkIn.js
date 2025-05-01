@@ -1,53 +1,89 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, TextInput } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert, TextInput, Platform } from 'react-native';
 import { reservationService } from '../../services/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
+// Web için react-datepicker importu
+// eslint-disable-next-line import/no-extraneous-dependencies
+import ReactDatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 function formatDate(date) {
   if (!date) return '';
-  return format(date, 'dd.MM.yyyy');
+  try {
+    return format(date, 'yyyy-MM-dd'); // API'ye gönderilecek format
+  } catch {
+    return '';
+  }
 }
-
+function formatDisplayDate(date) {
+  if (!date) return '';
+  try {
+    return format(date, 'dd.MM.yyyy'); // Kullanıcıya gösterilecek format
+  } catch {
+    return '';
+  }
+}
 function getToday() {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return now;
 }
 
+const PAGE_SIZE = 20;
+
 export default function CheckInScreen() {
-  const [checkIns, setCheckIns] = useState([]);
+  const [allCheckIns, setAllCheckIns] = useState([]); // API'den gelen ham veri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [date, setDate] = useState(getToday());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [processingId, setProcessingId] = useState(null); // İşlem yapılan rezervasyon ID'sini takip etmek için
 
+  // API'den sadece tarih, sayfa ve pageSize ile veri çek
   const fetchCheckIns = async (params = {}) => {
     setLoading(true);
     setError(null);
     try {
+      const apiDate = params.date ? params.date : date;
+      const apiPage = params.page ? params.page : page;
       const data = await reservationService.getCheckIns({
-        pageNumber: 1,
-        pageSize: 20,
-        checkInDate: formatDate(params.date ?? date),
-        customerName: params.search ?? search,
-        reservationId: params.search ?? search,
+        pageNumber: apiPage,
+        pageSize: PAGE_SIZE,
+        checkInDate: formatDate(apiDate),
       });
-      setCheckIns(data.data || []);
+      setAllCheckIns(data.data || []);
+      setTotalCount(data.totalCount || 0);
     } catch (err) {
       setError(err.message || 'Bir hata oluştu');
+      setAllCheckIns([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // Tarih veya sayfa değişince otomatik veri çek
   useEffect(() => {
     fetchCheckIns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [date, page]);
+
+  // Frontend filtreleme (arama kutusu)
+  const filteredCheckIns = useMemo(() => {
+    if (!search) return allCheckIns;
+    const lower = search.toLowerCase();
+    return allCheckIns.filter(item =>
+      (item.customerName && item.customerName.toLowerCase().includes(lower)) ||
+      (item.roomInfo && item.roomInfo.toLowerCase().includes(lower)) ||
+      (item.reservationId && item.reservationId.toString().includes(lower))
+    );
+  }, [allCheckIns, search]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -57,25 +93,54 @@ export default function CheckInScreen() {
   const handleCheckIn = async (reservationId) => {
     try {
       setLoading(true);
-      await reservationService.checkIn(reservationId);
-      Alert.alert('Başarılı', 'Check-in işlemi tamamlandı.');
-      fetchCheckIns();
+      setProcessingId(reservationId); // İşlemin başladığını kaydet
+      console.log('Check-in başlatılıyor, ID:', reservationId);
+      
+      const result = await reservationService.checkIn(reservationId);
+      console.log('Check-in işlemi başarılı:', result);
+      
+      // Başarılı check-in sonrası
+      if (Platform.OS === 'web') {
+        // Web'de başarılı bildirimi
+        alert(`✅ Check-in successful for reservation ${reservationId}.`);
+        
+        // Sayfayı yenileme - URL yönlendirmesi yerine
+        // Orijinal URL'yi muhafaza edelim
+        window.location.reload();
+      } else {
+        // Native platformlarda
+        Alert.alert('Başarılı', `Check-in işlemi ${reservationId} için tamamlandı.`);
+        fetchCheckIns(); // Native'de verileri yenile
+      }
     } catch (err) {
-      Alert.alert('Hata', err.message || 'Check-in işlemi başarısız.');
+      console.error('Check-in hatası:', err);
+      
+      // Hata bildirimi
+      const errorMsg = err.message || 'Check-in işlemi başarısız.';
+      
+      if (Platform.OS === 'web') {
+        alert('❌ ' + errorMsg);
+      } else {
+        Alert.alert('Hata', errorMsg);
+      }
     } finally {
+      setProcessingId(null); // İşlemin bittiğini işaretle
       setLoading(false);
     }
-  };
-
-  const onSearch = () => {
-    fetchCheckIns({ search });
   };
 
   const onDateChange = (event, selectedDate) => {
     setShowDatePicker(false);
     if (selectedDate) {
       setDate(selectedDate);
-      fetchCheckIns({ date: selectedDate });
+      setPage(1);
+    }
+  };
+
+  // Pagination için FlatList'in onEndReached fonksiyonu
+  const handleLoadMore = () => {
+    if (allCheckIns.length < totalCount && !loading) {
+      setPage(prev => prev + 1);
     }
   };
 
@@ -83,7 +148,7 @@ export default function CheckInScreen() {
     let color = '#FFA500';
     let label = status;
     if (status?.toLowerCase() === 'pending') { color = '#FFA500'; label = 'Pending'; }
-    else if (status?.toLowerCase() === 'checkedin') { color = '#4CAF50'; label = 'Checked-in'; }
+    else if (status?.toLowerCase() === 'checked-in' || status?.toLowerCase() === 'checkedin') { color = '#4CAF50'; label = 'Checked-in'; }
     else if (status?.toLowerCase() === 'cancelled') { color = '#F44336'; label = 'Cancelled'; }
     return (
       <View style={[styles.badge, { backgroundColor: color }]}> 
@@ -92,24 +157,103 @@ export default function CheckInScreen() {
     );
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.item}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={styles.itemTitle}>{item.customerName || 'Müşteri Bilgisi Yok'}</Text>
-        {renderStatus(item.status)}
+  const renderItem = ({ item }) => {
+    const isPending = item.status?.toLowerCase() === 'pending';
+    const isProcessing = processingId === item.reservationId;
+    
+    return (
+      <View style={styles.item}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={styles.itemTitle}>{item.customerName || 'Müşteri Bilgisi Yok'}</Text>
+          {renderStatus(item.status)}
+        </View>
+        <Text style={styles.itemSub}>Rez. ID: {item.reservationId || '-'}</Text>
+        <Text style={styles.itemSub}>Oda: {item.roomInfo || '-'}</Text>
+        <Text style={styles.itemSub}>Giriş: {formatDisplayDate(item.checkInDate) || '-'}</Text>
+        <Text style={styles.itemSub}>Çıkış: {formatDisplayDate(item.checkOutDate) || '-'}</Text>
+        
+        <TouchableOpacity 
+          style={[
+            styles.actionBtn,
+            !isPending && styles.disabledBtn,
+            isProcessing && styles.processingBtn
+          ]}
+          onPress={() => handleCheckIn(item.reservationId)}
+          disabled={!isPending || isProcessing}
+        >
+          <Text style={styles.actionBtnText}>
+            {isProcessing ? 'İşleniyor...' : 'Check-in'}
+          </Text>
+        </TouchableOpacity>
       </View>
-      <Text style={styles.itemSub}>Rez. ID: {item.reservationId || '-'}</Text>
-      <Text style={styles.itemSub}>Oda: {item.roomInfo || '-'}</Text>
-      <Text style={styles.itemSub}>Giriş: {item.checkInDate || '-'}</Text>
-      <Text style={styles.itemSub}>Çıkış: {item.checkOutDate || '-'}</Text>
-      <TouchableOpacity style={styles.actionBtn} onPress={() => handleCheckIn(item.reservationId)} disabled={item.status?.toLowerCase() !== 'pending'}>
-        <Text style={styles.actionBtnText}>Check-in</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
+      {Platform.OS === 'web' && (
+        <style>{`
+          .custom-datepicker-popper,
+          .react-datepicker-popper,
+          .react-datepicker {
+            z-index: 999999 !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            position: absolute !important;
+          }
+          .react-datepicker-popper {
+            position: absolute !important;
+            top: auto !important;
+            left: auto !important;
+            inset: auto !important;
+            transform: none !important;
+          }
+          .react-datepicker-wrapper, 
+          .react-datepicker__input-container {
+            position: static !important;
+          }
+          .react-datepicker {
+            border-radius: 10px !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+            border: none !important;
+            font-size: 14px !important;
+          }
+          .react-datepicker__header {
+            background-color: #f8f8f8 !important;
+            border-bottom: 1px solid #e8e8e8 !important;
+            border-top-left-radius: 10px !important;
+            border-top-right-radius: 10px !important;
+            padding-top: 10px !important;
+          }
+          .react-datepicker__month {
+            margin: 8px !important;
+          }
+          .react-datepicker__day-name, .react-datepicker__day {
+            width: 2rem !important;
+            line-height: 2rem !important;
+            margin: 0.2rem !important;
+          }
+          .react-datepicker__current-month {
+            font-weight: bold !important;
+            font-size: 16px !important;
+            color: #333 !important;
+          }
+          .react-datepicker__day--selected {
+            background-color: #3C3169 !important;
+            border-radius: 50% !important;
+          }
+          .react-datepicker__day:hover {
+            background-color: #f0f0f0 !important;
+            border-radius: 50% !important;
+          }
+          .react-datepicker__day--keyboard-selected {
+            background-color: rgba(60, 49, 105, 0.2) !important;
+            border-radius: 50% !important;
+          }
+          .react-datepicker__navigation {
+            top: 10px !important;
+          }
+        `}</style>
+      )}
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>Check-In</Text>
       </View>
@@ -119,23 +263,80 @@ export default function CheckInScreen() {
           placeholder="ID, Name, Room Info..."
           value={search}
           onChangeText={setSearch}
-          onSubmitEditing={onSearch}
           returnKeyType="search"
         />
-        <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-          <Text style={styles.dateBtnText}>{date ? formatDate(date) : 'Tarih Seç'}</Text>
-        </TouchableOpacity>
-        {showDatePicker && (
-          <DateTimePicker
-            value={date || new Date()}
-            mode="date"
-            display="default"
-            onChange={onDateChange}
-          />
+        {Platform.OS === 'web' ? (
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            marginLeft: 10, 
+            marginRight: 10, 
+            marginBottom: 10,
+            position: 'relative',
+            zIndex: 100000,
+          }}>
+            <label style={{ 
+              fontWeight: 'bold', 
+              marginBottom: 5, 
+              fontSize: 14,
+              color: '#333' 
+            }}>Check-in Date</label>
+            <ReactDatePicker
+              selected={date}
+              onChange={d => {
+                setDate(d);
+                setPage(1);
+              }}
+              dateFormat="dd.MM.yyyy"
+              popperClassName="custom-datepicker-popper"
+              calendarClassName="custom-datepicker-calendar"
+              portalId="datepicker-portal"
+              withPortal
+              customInput={
+                <input
+                  style={{
+                    background: 'white',
+                    border: '1px solid #ddd',
+                    borderRadius: 8,
+                    padding: '12px 16px',
+                    fontSize: 18,
+                    width: '100%',
+                    minWidth: '180px',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    color: '#333'
+                  }}
+                  readOnly
+                  placeholder="Tarih Seçin"
+                />
+              }
+              showPopperArrow={false}
+              popperPlacement="bottom-start"
+              popperProps={{
+                strategy: 'fixed',
+                modifiers: [
+                  { name: 'offset', options: { offset: [0, 8] } }
+                ]
+              }}
+            />
+          </div>
+        ) : (
+          <>
+            <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
+              <Text style={styles.dateBtnText}>{date ? formatDisplayDate(date) : 'Tarih Seç'}</Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={date || new Date()}
+                mode="date"
+                display="default"
+                onChange={onDateChange}
+              />
+            )}
+          </>
         )}
-        <TouchableOpacity style={styles.searchBtn} onPress={onSearch}>
-          <Text style={styles.searchBtnText}>Ara</Text>
-        </TouchableOpacity>
       </View>
       <View style={styles.content}>
         {loading ? (
@@ -144,11 +345,13 @@ export default function CheckInScreen() {
           <Text style={{ color: 'red' }}>{error}</Text>
         ) : (
           <FlatList
-            data={checkIns}
-            keyExtractor={(item, idx) => item.id?.toString() || idx.toString()}
+            data={filteredCheckIns}
+            keyExtractor={(item, idx) => item.id?.toString() || item.reservationId?.toString() || idx.toString()}
             renderItem={renderItem}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={<Text>Seçili filtrelere göre check-in kaydı bulunamadı.</Text>}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
           />
         )}
       </View>
@@ -202,17 +405,6 @@ const styles = StyleSheet.create({
     color: '#3C3169',
     fontWeight: 'bold',
   },
-  searchBtn: {
-    backgroundColor: '#3C3169',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  searchBtnText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
   content: {
     flex: 1,
     padding: 10,
@@ -255,6 +447,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     opacity: 1,
+  },
+  disabledBtn: {
+    backgroundColor: '#C4C4C4',
+    opacity: 0.6,
+  },
+  processingBtn: {
+    backgroundColor: '#7B68EE',
   },
   actionBtnText: {
     color: 'white',
