@@ -1,0 +1,22 @@
+.nameCell {
+    padding: 16px;
+  }
+  
+  .loadingBox {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+  }
+  
+  .errorBox {
+    margin: 16px 0;
+    border-radius: 8px;
+  }
+  
+  /* Responsive ayarlamalar */
+  @media (max-width: 768px) {
+    .nameCell {
+      padding: 12px 8px;
+    }
+  }

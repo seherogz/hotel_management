@@ -10,6 +10,7 @@ import RegisterUser from './components/Register/RegisterUser';
 import AccountingPage from './components/Accounting/Accounting';
 import CheckIn from './components/CheckIn/CheckIn';
 import CheckOut from './components/CheckOut/CheckOut';
+import CustomerInfo from './components/Customers/CustomerInfo';
 
 // ProtectedRoute: only for authenticated users
 const ProtectedRoute = ({ children }) => {
@@ -55,7 +56,7 @@ function App() {
           <Route path="register" element={<RegisterUser />} />
           <Route path="check-in" element={<CheckIn />} />
           <Route path="check-out" element={<CheckOut />} />
-
+          <Route path="customer-info" element={<CustomerInfo />} />
           {/* Admin-only */}
           <Route
             path="register"
