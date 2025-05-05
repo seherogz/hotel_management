@@ -21,5 +21,7 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
         public int? CurrentReservationId { get; set; } // O anki rezervasyon ID'si (null olabilir)
         public DateTime? OccupantCheckInDate { get; set; } // O anki misafirin giriş tarihi (null olabilir)
         public DateTime? OccupantCheckOutDate { get; set; }
+        public string? MaintenanceIssueDescription { get; set; }
+        public DateTime? MaintenanceCompletionDate { get; set; }
     }
 }

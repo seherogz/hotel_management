@@ -158,18 +158,27 @@ const CalendarView = ({ rooms = [], onViewDetails, onReserve, onWeekChange, disp
                 id: room.roomId,
                 roomNumber: room.roomNumber,
                 roomType: room.roomType,
+                pricePerNight: room.pricePerNight,
                 // Diğer temel oda bilgileri (room objesinde varsa)
-                // capacity: room.capacity,
-                // features: room.features,
+                capacity: room.capacity,
+                features: room.features,
                 selectedDate: clickedDate.toISOString(),
                 displayDate: format(clickedDate, 'dd.MM.yyyy EEEE', { locale: tr }),
                 // dailyStatus varsa oradan, yoksa 'Available' al
                 computedStatus: dailyStatus?.status || 'Available',
                 occupantName: dailyStatus?.occupantName || null,
                 currentReservationId: dailyStatus?.reservationId || null,
-                occupantCheckInDate: null, // Bu endpoint'te yok
-                occupantCheckOutDate: null, // Bu endpoint'te yok
-                description: dailyStatus?.status === 'Maintenance' ? 'Oda bakımda' : (room.description || ''),
+                occupantIdNumber: dailyStatus?.occupantIdNumber || null, 
+                occupantCheckInDate: dailyStatus?.reservationStartDate || null,
+                occupantCheckOutDate: dailyStatus?.reservationEndDate || null,
+                description: room.description,
+                maintenanceIssueDescription: (dailyStatus?.status === 'Maintenance')
+                                    ? dailyStatus.maintenanceIssueDescription
+                                    : null, // Değilse null ata
+    maintenanceCompletionDate: (dailyStatus?.status === 'Maintenance')
+                                    ? dailyStatus.maintenanceCompletionDate
+                                    : null, // Değilse null ata
+
             };
             console.log("Modal'a gönderilen veri:", roomForModal);
             onViewDetails(roomForModal); // Üst bileşendeki fonksiyonu çağır

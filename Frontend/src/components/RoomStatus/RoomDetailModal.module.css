@@ -277,3 +277,49 @@
     width: 100%;
   }
 } 
+.maintenanceInfoSection {
+  background-color: rgba(255, 152, 0, 0.08); /* Hafif turuncu arkaplan */
+  border-left: 3px solid #ff9800; /* Sol kenarda turuncu çizgi */
+  padding: 15px;
+  border-radius: 4px;
+  margin-top: 15px; /* Üstteki elemanla arasına boşluk */
+}
+
+/* Detayların olduğu bölüm (sebep ve tarih satırları için) */
+.maintenanceDetails {
+  display: flex;
+  flex-direction: column; /* Öğeleri alt alta diz */
+  gap: 8px; /* Öğeler arası boşluk */
+  margin-top: 10px; /* Başlıktan sonra biraz boşluk */
+}
+
+/* Her bir detay satırı (ikon + etiket + değer) */
+.maintenanceItem {
+  display: flex;
+  align-items: center; /* İkon ve metni dikeyde hizala */
+  gap: 8px; /* İkon, etiket ve değer arası boşluk */
+  font-size: 14px; /* Metin boyutu */
+}
+
+/* Bakım ikonu (FaTools, FaCalendarTimes) */
+.maintenanceIcon {
+  color: #ff9800; /* Turuncu ikon rengi */
+  font-size: 1.1em; /* İkon boyutu */
+  flex-shrink: 0; /* İkon küçülmesin */
+  width: 20px; /* İkon için sabit genişlik */
+  text-align: center;
+}
+
+/* "Sebep:", "Tahmini Bitiş:" etiketi */
+.maintenanceLabel {
+  font-weight: 500;
+  color: #555;
+  white-space: nowrap; /* Etiket alta kaymasın */
+  min-width: 90px; /* Etiket için minimum genişlik */
+}
+
+/* Asıl bakım sebebi veya tarih değeri */
+.maintenanceValue {
+  font-weight: 500;
+  color: #333;
+}

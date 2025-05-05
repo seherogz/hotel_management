@@ -11,11 +11,11 @@ namespace CleanArchitecture.Core.Features.MaintenanceIssues.Commands.ResolveMain
 {
     public class ResolveMaintenanceIssueCommandHandler : IRequestHandler<ResolveMaintenanceIssueCommand, int>
     {
-        private readonly IRoomRepositoryAsync _roomRepository;
+        private readonly IRoomRepositoryAsync _roomRepository; // Artık odayı güncellemek için kullanılmayacak
         private readonly IMaintenanceIssueRepositoryAsync _maintenanceIssueRepository;
 
         public ResolveMaintenanceIssueCommandHandler(
-            IRoomRepositoryAsync roomRepository,
+            IRoomRepositoryAsync roomRepository, // Bağımlılık kalabilir ama kullanılmayacak
             IMaintenanceIssueRepositoryAsync maintenanceIssueRepository)
         {
             _roomRepository = roomRepository;
@@ -30,31 +30,34 @@ namespace CleanArchitecture.Core.Features.MaintenanceIssues.Commands.ResolveMain
                 throw new EntityNotFoundException("MaintenanceIssue", request.MaintenanceIssueId);
             }
 
+            // Opsiyonel: Sorunun doğru odaya ait olup olmadığını kontrol etmek iyi bir pratik olabilir.
             if (maintenanceIssue.RoomId != request.RoomId)
             {
-                throw new ValidationException("Maintenance issue does not belong to the specified room.");
-            }
-
-            var room = await _roomRepository.GetByIdAsync(request.RoomId);
-            if (room == null)
-            {
-                throw new EntityNotFoundException("Room", request.RoomId);
+                 throw new ValidationException($"Maintenance issue {request.MaintenanceIssueId} does not belong to the specified room {request.RoomId}.");
             }
 
             // Bakım sorununu sil
             await _maintenanceIssueRepository.DeleteAsync(maintenanceIssue);
 
-            // Oda için başka aktif bakım sorunu kalıp kalmadığını kontrol et
-            // Silinen issue hariç diğerlerini kontrol et
-            var remainingIssues = await _maintenanceIssueRepository.GetByRoomIdAsync(request.RoomId);
-
-            // Eğer başka issue kalmadıysa ve oda bakımda ise, bakım durumunu kaldır
-            if (!remainingIssues.Any() && room.IsOnMaintenance) // <<< GÜNCELLENDİ
+            // --- KALDIRILAN BÖLÜM ---
+            // Artık başka sorun kalıp kalmadığına bakıp Room.IsOnMaintenance flag'ini değiştirmiyoruz.
+            /*
+            var room = await _roomRepository.GetByIdAsync(request.RoomId);
+            if (room == null)
             {
-                room.IsOnMaintenance = false; // <<< GÜNCELLENDİ
+                // Bu durum normalde yaşanmamalı ama kontrol eklenebilir.
+                throw new EntityNotFoundException("Room", request.RoomId);
+            }
+            var remainingIssues = await _maintenanceIssueRepository.GetByRoomIdAsync(request.RoomId);
+            if (!remainingIssues.Any() && room.IsOnMaintenance)
+            {
+                room.IsOnMaintenance = false;
                 await _roomRepository.UpdateAsync(room);
             }
+            */
+            // --- KALDIRILAN BÖLÜM SONU ---
 
+            // Başarılı olursa, çözülen sorunun ait olduğu oda ID'sini döndürebiliriz.
             return request.RoomId;
         }
     }

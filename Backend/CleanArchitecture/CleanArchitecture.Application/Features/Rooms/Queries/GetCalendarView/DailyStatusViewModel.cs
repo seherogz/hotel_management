@@ -9,6 +9,10 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetCalendarView
         public string Status { get; set; } // "Available", "Occupied", "Maintenance"
         public int? ReservationId { get; set; }
         public string? OccupantName { get; set; }
-        // İsteğe bağlı: public string? MaintenanceDescription { get; set; }
+        public string? OccupantIdNumber { get; set; } // Null olabilir
+        public DateTime? ReservationStartDate { get; set; } // Null olabilir
+        public DateTime? ReservationEndDate { get; set; }
+        public string? MaintenanceIssueDescription { get; set; } // Null olabilir
+        public DateTime? MaintenanceCompletionDate { get; set; }
     }
 }

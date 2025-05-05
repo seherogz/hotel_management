@@ -18,19 +18,19 @@ using CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms;
 
 namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
 {
-    // Query Sınıfı (StatusCheckDate kaldırıldı)
+    // Query Sınıfı (Değişiklik Yok)
     public class GetAllRoomsQuery : IRequest<PagedResponse<GetAllRoomsViewModel>>
     {
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
         public string RoomType { get; set; }
         public int? Floor { get; set; }
-        public bool? IsOnMaintenance { get; set; } // Filtre olarak kalabilir
-        public DateTime? AvailabilityStartDate { get; set; } // Hem filtre hem durum tarihi için kullanılır
-        public DateTime? AvailabilityEndDate { get; set; }   // Sadece filtre için
+        public bool? IsOnMaintenance { get; set; }
+        public DateTime? AvailabilityStartDate { get; set; }
+        public DateTime? AvailabilityEndDate { get; set; }
     }
 
-    // Query Handler Sınıfı
+    // Query Handler Sınıfı (GÜNCELLENMİŞ)
     public class GetAllRoomsQueryHandler : IRequestHandler<GetAllRoomsQuery, PagedResponse<GetAllRoomsViewModel>>
     {
         private readonly IApplicationDbContext _context;
@@ -39,7 +39,7 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
         private static readonly TimeSpan DefaultStatusCheckTime = new TimeSpan(16, 0, 0); // Güncel durum kontrol saati (16:00 UTC idi)
 
         // --- Otel Saat Dilimi (Hardcoded - Daha iyisi yapılandırmadan almaktır) ---
-        private const string HotelTimeZoneId = "Europe/Istanbul";
+        private const string HotelTimeZoneId = "Europe/Istanbul"; // Veya appsettings.json'dan alın
         // ---
 
         public GetAllRoomsQueryHandler(
@@ -58,7 +58,7 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
             DateTime statusDate = request.AvailabilityStartDate?.Date ?? _dateTimeService.NowUtc.Date;
             DateTime checkDateTime = DateTime.SpecifyKind(statusDate + DefaultStatusCheckTime, DateTimeKind.Utc);
 
-            // --- YENİ: Müsaitlik Filtresi için UTC Tarihlerini Ayarlama ---
+            // --- Müsaitlik Filtresi için UTC Tarihlerini Ayarlama (Değişiklik yok) ---
             DateTime? availabilityStartDateUtc = null;
             DateTime? availabilityEndDateUtc = null;
             TimeZoneInfo hotelTimeZone;
@@ -70,35 +70,28 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
 
             if (request.AvailabilityStartDate.HasValue)
             {
-                // Başlangıç tarihi varsa: O günün 16:00'sını al (yerel) ve UTC'ye çevir
-                DateTime localStart = request.AvailabilityStartDate.Value.Date.Add(new TimeSpan(16, 0, 0));
+                DateTime localStart = request.AvailabilityStartDate.Value.Date.Add(new TimeSpan(16, 0, 0)); // Yerel 16:00
                 availabilityStartDateUtc = TimeZoneInfo.ConvertTimeToUtc(localStart, hotelTimeZone);
             }
 
             if (request.AvailabilityEndDate.HasValue)
             {
-                 // Bitiş tarihi varsa: O günün 10:00'unu al (yerel) ve UTC'ye çevir
-                 DateTime localEnd = request.AvailabilityEndDate.Value.Date.Add(new TimeSpan(10, 0, 0));
+                 DateTime localEnd = request.AvailabilityEndDate.Value.Date.Add(new TimeSpan(10, 0, 0)); // Yerel 10:00
                  availabilityEndDateUtc = TimeZoneInfo.ConvertTimeToUtc(localEnd, hotelTimeZone);
-
-                 // Eğer sadece EndDate verilmişse, StartDate'i NowUtc olarak kabul edebiliriz (opsiyonel)
-                 // if (!availabilityStartDateUtc.HasValue) {
-                 //     availabilityStartDateUtc = _dateTimeService.NowUtc;
-                 // }
             }
              // --- Müsaitlik Filtresi Tarih Ayarlama Sonu ---
 
 
-            // --- VERİTABANI SORGUSU (Include'lar aynı) ---
+            // --- VERİTABANI SORGUSU (Reservations Include basitleştirildi) ---
             var query = _context.Rooms
                 .Include(r => r.Amenities)
-                .Include(r => r.Reservations.Where(res => res.Status == "Pending" || res.Status == "Checked-in"))
+                .Include(r => r.Reservations) // Status filtresi olmadan tümünü yükle
                     .ThenInclude(res => res.Customer)
                 .Include(r => r.MaintenanceIssues)
                 .AsQueryable();
             // --- VERİTABANI SORGUSU SONU ---
 
-            // --- FİLTRELEME (Müsaitlik kısmı YENİ UTC sınırlarını kullanır) ---
+            // --- FİLTRELEME (Müsaitlik kısmı GÜNCELLENDİ) ---
             if (!string.IsNullOrEmpty(request.RoomType)) query = query.Where(r => r.RoomType == request.RoomType);
             if (request.Floor.HasValue) query = query.Where(r => r.Floor == request.Floor.Value);
             if (request.IsOnMaintenance.HasValue) query = query.Where(r => r.IsOnMaintenance == request.IsOnMaintenance.Value);
@@ -113,14 +106,15 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
                  }
 
                  query = query.Where(room =>
-                        // Bakım çakışması yoksa
+                        // Bakım çakışması yoksa (Değişiklik yok)
                         !room.MaintenanceIssues.Any(issue =>
-                            issue.Created < availabilityEndDateUtc.Value &&
+                            issue.Created < availabilityEndDateUtc.Value && // Assuming Created is the start
                             issue.EstimatedCompletionDate > availabilityStartDateUtc.Value) &&
-                        // Rezervasyon çakışması yoksa (YENİ UTC sınırlarına göre)
+                        // Rezervasyon çakışması yoksa (SADECE Aktif olanlar kontrol edilir - GÜNCELLENDİ)
                         !room.Reservations.Any(res =>
-                            res.StartDate < availabilityEndDateUtc.Value && // Rez. başlangıcı < Filtre Bitiş (10:00 UTC karşılığı)
-                            res.EndDate > availabilityStartDateUtc.Value    // Rez. bitişi > Filtre Başlangıç (16:00 UTC karşılığı)
+                            // Durumu "Pending" veya "Checked-in" ise VE Tarih aralığı çakışıyorsa
+                            (res.Status == "Pending" || res.Status == "Checked-in") &&
+                            (res.StartDate < availabilityEndDateUtc.Value && res.EndDate > availabilityStartDateUtc.Value)
                         ));
             }
             // --- FİLTRELEME SONU ---
@@ -136,57 +130,96 @@ namespace CleanArchitecture.Core.Features.Rooms.Queries.GetAllRooms
 
             var roomViewModels = _mapper.Map<List<GetAllRoomsViewModel>>(pagedData);
 
-            // --- ViewModel Doldurma (StatusCheckDate kaldırılmıştı, diğerleri aynı) ---
-            foreach (var viewModel in roomViewModels)
-            {
-                 // ... (Önceki cevapta olduğu gibi ViewModel doldurma mantığı) ...
-                 var roomEntity = pagedData.FirstOrDefault(r => r.Id == viewModel.Id);
-                 if (roomEntity != null)
-                 {
-                     viewModel.Features = roomEntity.Amenities?.Select(a => a.Name).ToList() ?? new List<string>();
-                     viewModel.IsOnMaintenance = roomEntity.IsOnMaintenance;
+// --- ViewModel Doldurma (GÜNCELLENDİ) ---
+foreach (var viewModel in roomViewModels)
+{
+    var roomEntity = pagedData.FirstOrDefault(r => r.Id == viewModel.Id);
+    if (roomEntity != null)
+    {
+        viewModel.Features = roomEntity.Amenities?.Select(a => a.Name).ToList() ?? new List<string>();
+        // IsOnMaintenance flag'ini entity'den okuyoruz, ama computedStatus için kullanmıyoruz.
+        viewModel.IsOnMaintenance = roomEntity.IsOnMaintenance;
 
-                     var statusResult = CalculateRoomStatusDetails(roomEntity, checkDateTime); // checkDateTime hala eski mantıkla hesaplanıyor (isteğe bağlı date veya now 12:00 UTC)
-                     viewModel.ComputedStatus = statusResult.Status;
+        // Güncellenmiş CalculateRoomStatusDetails metodunu çağır
+        var statusResult = CalculateRoomStatusDetails(roomEntity, checkDateTime);
+        viewModel.ComputedStatus = statusResult.Status;
 
-                     if (statusResult.Status == "Occupied" && statusResult.OccupyingReservation != null)
-                     {
-                         var occupyingReservation = statusResult.OccupyingReservation;
-                         viewModel.CurrentReservationId = occupyingReservation.Id;
-                         viewModel.OccupantName = (occupyingReservation.Customer != null) ? $"{occupyingReservation.Customer.FirstName} {occupyingReservation.Customer.LastName}" : null;
-                         viewModel.OccupantCheckInDate = occupyingReservation.StartDate;
-                         viewModel.OccupantCheckOutDate = occupyingReservation.EndDate;
-                     }
-                     else
-                     {
-                         viewModel.CurrentReservationId = null;
-                         viewModel.OccupantName = null;
-                         viewModel.OccupantCheckInDate = null;
-                         viewModel.OccupantCheckOutDate = null;
-                     }
-                     // StatusCheckDate ViewModel'den kaldırılmıştı.
-                 }
-            }
+        // Duruma göre ilgili alanları doldur
+        if (statusResult.Status == "Maintenance" && statusResult.ActiveMaintenance != null)
+        {
+            // Bakım durumu: Bakım detaylarını doldur, misafir bilgilerini temizle
+            viewModel.MaintenanceIssueDescription = statusResult.ActiveMaintenance.IssueDescription;
+            viewModel.MaintenanceCompletionDate = statusResult.ActiveMaintenance.EstimatedCompletionDate;
+
+            viewModel.CurrentReservationId = null;
+            viewModel.OccupantName = null;
+            viewModel.OccupantCheckInDate = null;
+            viewModel.OccupantCheckOutDate = null;
+        }
+        else if (statusResult.Status == "Occupied" && statusResult.OccupyingReservation != null)
+        {
+            // Dolu durumu: Misafir bilgilerini doldur, bakım detaylarını temizle
+            var occupyingReservation = statusResult.OccupyingReservation;
+            viewModel.CurrentReservationId = occupyingReservation.Id;
+            viewModel.OccupantName = (occupyingReservation.Customer != null) ? $"{occupyingReservation.Customer.FirstName} {occupyingReservation.Customer.LastName}" : null;
+            viewModel.OccupantCheckInDate = occupyingReservation.StartDate;
+            viewModel.OccupantCheckOutDate = occupyingReservation.EndDate;
+
+            viewModel.MaintenanceIssueDescription = null;
+            viewModel.MaintenanceCompletionDate = null;
+        }
+        else // Status == "Available"
+        {
+            // Müsait durumu: Hem misafir hem bakım detaylarını temizle
+            viewModel.CurrentReservationId = null;
+            viewModel.OccupantName = null;
+            viewModel.OccupantCheckInDate = null;
+            viewModel.OccupantCheckOutDate = null;
+
+            viewModel.MaintenanceIssueDescription = null;
+            viewModel.MaintenanceCompletionDate = null;
+        }
+    }
+}
             // --- ViewModel Doldurma Sonu ---
 
             return new PagedResponse<GetAllRoomsViewModel>(roomViewModels, request.PageNumber, request.PageSize, totalRecords);
+            
         }
-
-        // Yardımcı metot (Değişiklik yok, Created tarihini kullanıyor)
+        
         private (string Status, Reservation? OccupyingReservation, MaintenanceIssue? ActiveMaintenance) CalculateRoomStatusDetails(Room room, DateTime checkDateTime)
         {
-            var activeMaintenance = room.MaintenanceIssues?
+            // 1. Bakım Kontrolü: O 'checkDateTime' anında aktif bir bakım kaydı var mı?
+            //    Not: MaintenanceIssues koleksiyonunun Handle metodu içinde Include ile yüklendiğini varsayıyoruz.
+            var activeMaintenance = room.MaintenanceIssues? // Null check
                 .FirstOrDefault(issue =>
+                    // checkDateTime, bakımın başlangıcı (Created) ile bitişi (EstimatedCompletionDate) arasında mı?
                     checkDateTime >= issue.Created &&
                     checkDateTime < issue.EstimatedCompletionDate);
-            if (activeMaintenance != null) return ("Maintenance", null, activeMaintenance);
 
-            var conflictingReservation = room.Reservations?
-               .FirstOrDefault(res =>
-                   checkDateTime >= res.StartDate &&
-                   checkDateTime < res.EndDate);
-            if (conflictingReservation != null) return ("Occupied", conflictingReservation, null);
+            if (activeMaintenance != null)
+            {
+                // Aktif bakım bulunduysa, durumu "Maintenance" yap ve ilgili bakım kaydını döndür.
+                return ("Maintenance", null, activeMaintenance);
+            }
 
+            // 2. Rezervasyon Kontrolü: Bakımda değilse, o 'checkDateTime' anında aktif bir rezervasyon var mı?
+            //    Not: Reservations koleksiyonunun Handle metodu içinde Include ile yüklendiğini varsayıyoruz.
+            var conflictingReservation = room.Reservations? // Null check
+                .FirstOrDefault(res =>
+                    // Rezervasyon durumu "Pending" veya "Checked-in" mi? VE
+                    (res.Status == "Pending" || res.Status == "Checked-in") &&
+                    // checkDateTime, rezervasyonun başlangıcı ile bitişi arasında mı?
+                    checkDateTime >= res.StartDate &&
+                    checkDateTime < res.EndDate);
+
+            if (conflictingReservation != null)
+            {
+                // Aktif rezervasyon bulunduysa, durumu "Occupied" yap ve ilgili rezervasyon kaydını döndür.
+                return ("Occupied", conflictingReservation, null);
+            }
+
+            // 3. Müsait: Aktif bakım veya çakışan aktif rezervasyon yoksa oda müsaittir.
             return ("Available", null, null);
         }
     }

@@ -2,7 +2,7 @@ import React from 'react';
 // Gerekli ikonları import et (önceki adımdan)
 import {
   FaTv, FaWineGlassAlt, FaWifi, FaInfoCircle, FaCalendarCheck,
-  FaSnowflake, FaHotTub, FaDoorOpen, FaCoffee
+  FaSnowflake, FaHotTub, FaDoorOpen, FaCoffee, FaTools, FaCalendarTimes
 } from 'react-icons/fa';
 import styles from './RoomStatus.module.css';
 
@@ -14,6 +14,16 @@ const formatDate = (dateString) => {
   } catch (error) {
     console.error("Tarih formatlama hatası:", error);
     return dateString;
+  }
+};
+const formatMaintenanceDate = (dateString) => {
+  if (!dateString) return 'Belirtilmemiş';
+  try {
+      // Örneğin: 3 Mayıs 2025, 20:49
+      return new Date(dateString).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch (error) {
+      console.error("Bakım tarihi formatlama hatası:", error);
+      return formatDate(dateString); // Hata olursa sadece tarihi göster
   }
 };
 
@@ -81,9 +91,22 @@ const RoomCard = ({ room, onReserve, onViewDetails }) => {
 
         {/* Eğer oda 'Maintenance' ise Bakım Bilgisini göster */}
         {room.computedStatus === 'Maintenance' && (
-           <div className={styles.maintenanceInfo}>
-             <p>Oda şu anda bakımda.</p>
+           <div className={`${styles.maintenanceInfo} ${styles.maintenanceDetails}`}>
+           <div className={styles.maintenanceItem}>
+              <FaTools className={styles.maintenanceIcon} />
+              <span className={styles.maintenanceLabel}>Sebep:</span>
+              <span className={styles.maintenanceValue}>
+                  {room.maintenanceIssueDescription || 'Genel Bakım'}
+              </span>
            </div>
+           <div className={styles.maintenanceItem}>
+              <FaCalendarTimes className={styles.maintenanceIcon} />
+              <span className={styles.maintenanceLabel}>Tahmini Bitiş:</span>
+              <span className={styles.maintenanceValue}>
+                  {formatMaintenanceDate(room.maintenanceCompletionDate)}
+              </span>
+           </div>
+         </div>
         )}
         {/* --- DURUMA GÖRE GÖSTERİLEN BİLGİLER SONU --- */}
 

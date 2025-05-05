@@ -126,25 +126,42 @@ const RoomStatusPage = () => {
          // Gelen veriyi işle (computedStatus belirle vs.)
          if (apiResponse && Array.isArray(apiResponse.data)) { // .data gerekebilir
              processedData = apiResponse.data.map(room => { // .data gerekebilir
-                 let finalStatus = 'Available';
-                 if (room.isOnMaintenance === true) { finalStatus = 'Maintenance'; }
-                 else if (room.computedStatus?.toLowerCase() === 'occupied') { finalStatus = 'Occupied'; }
-                 else { finalStatus = 'Available'; }
-                 // Frontend için RoomCard'ın beklediği formatta obje oluştur
-                 return {
-                    id: room.id || room._id, // Liste görünümü ID kullanır
-                    roomNumber: String(room.roomNumber) || '',
-                    capacity: `${room.capacity || '?'}`,
-                    computedStatus: finalStatus, // Hesaplanan durum
-                    occupantName: room.occupantName || null,
-                    occupantCheckInDate: room.occupantCheckInDate || null,
-                    occupantCheckOutDate: room.occupantCheckOutDate || null,
-                    currentReservationId: room.currentReservationId || null,
-                    features: parseFeatures(room.features),
-                    pricePerNight: room.pricePerNight || 0,
-                    roomType: room.roomType || '',
-                    description: room.description || '',
-                 };
+              let finalStatus = 'Available'; // Varsayılan
+              const backendStatus = room.computedStatus?.toLowerCase();
+          
+              if (backendStatus === 'maintenance') {
+                  finalStatus = 'Maintenance';
+              } else if (backendStatus === 'occupied') {
+                  finalStatus = 'Occupied';
+              } else if (backendStatus === 'available') {
+                  finalStatus = 'Available';
+              }
+              // Başka potansiyel durumlar varsa buraya eklenebilir
+              // else if (backendStatus === 'pending_cleaning') { ... }
+          
+              // -------------------------------------------------
+          
+              return {
+                 id: room.id || room._id,
+                 roomNumber: String(room.roomNumber) || '',
+                 capacity: `${room.capacity || '?'}`,
+                 // === computedStatus artık doğrudan backend'den gelene göre belirleniyor ===
+                 computedStatus: finalStatus,
+                 // =======================================================================
+                 occupantName: room.occupantName || null,
+                 occupantCheckInDate: room.occupantCheckInDate || null,
+                 occupantCheckOutDate: room.occupantCheckOutDate || null,
+                 currentReservationId: room.currentReservationId || null,
+                 features: parseFeatures(room.features),
+                 pricePerNight: room.pricePerNight || 0,
+                 roomType: room.roomType || '',
+                 description: room.description || '',
+                 // Frontend'in isOnMaintenance'ı ayrıca bilmesine gerek kalmadı,
+                 // ama istersen yine de ekleyebilirsin:
+                 // isOnMaintenance: room.isOnMaintenance === true
+                 maintenanceIssueDescription: room.maintenanceIssueDescription,
+                maintenanceCompletionDate: room.maintenanceCompletionDate
+              };
              });
          } else {
              console.error("Liste API'sinden geçersiz veri:", apiResponse);
