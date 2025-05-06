@@ -13,7 +13,8 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  StatusBar
 } from 'react-native';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
@@ -680,8 +681,8 @@ export default function AccountingScreen() {
               onSelectedChange={handleDateSelected}
               mode="calendar"
               options={{
-                textHeaderColor: '#3C3169',
-                mainColor: '#3C3169',
+                textHeaderColor: '#6B3DC9',
+                mainColor: '#6B3DC9',
               }}
             />
           </View>
@@ -893,25 +894,20 @@ export default function AccountingScreen() {
   
   return (
     <SafeAreaView style={styles.container}>
-      <Stack
-        screenOptions={{
-          headerShown: true,
-          title: "Accounting",
-          headerStyle: {
-            backgroundColor: '#f8f9fa',
-          },
-          headerTintColor: '#333',
-          headerShadowVisible: false,
-          headerLeft: () => (
-            <TouchableOpacity 
-              onPress={() => router.replace('/dashboard')} 
-              style={{ marginLeft: 10 }}
-            >
-              <MaterialIcons name="arrow-back" size={24} color="#333" />
-            </TouchableOpacity>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar backgroundColor="#6B3DC9" barStyle="light-content" />
+      
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity 
+            onPress={() => router.replace('/(tabs)/other')} 
+            style={styles.backButton}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Accounting</Text>
+        </View>
+      </View>
       
       <View style={styles.mainContainer}>
         {/* Summary Cards */}
@@ -1104,6 +1100,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+    paddingTop: 0
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6B3DC9',
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 15,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   mainContainer: {
     flex: 1,

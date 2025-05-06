@@ -29,43 +29,19 @@ export default function DashboardScreen() {
   const userEmail = user?.email || params.email || "user@example.com";
   
   const handleLogout = async () => {
-    // Show confirmation dialog
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to log out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        { 
-          text: "Logout", 
-          onPress: async () => {
-            try {
-              console.log('Logging out...');
-              // First perform the logout to clear all authentication state
-              const success = await logout();
-              
-              if (success) {
-                console.log('Logged out successfully, redirecting to login screen...');
-                
-                // Ensure we're navigating to the login screen correctly
-                // Use replace to prevent going back to the dashboard with the back button
-                setTimeout(() => {
-                  router.replace('/');
-                }, 100); // Small delay to ensure state updates complete
-              } else {
-                console.error('Logout was not successful');
-                Alert.alert('Logout Error', 'An error occurred while logging out. Please try again.');
-              }
-            } catch (error) {
-              console.error('Error during logout:', error);
-              Alert.alert('Logout Error', 'An error occurred while logging out. Please try again.');
-            }
-          }
-        }
-      ]
-    );
+    try {
+      console.log('Logging out...');
+      const success = await logout();
+      
+      if (success) {
+        console.log('Logged out successfully, redirecting to login screen...');
+        router.replace('../login');
+      } else {
+        console.error('Logout was not successful');
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   const handleRegister = async () => {

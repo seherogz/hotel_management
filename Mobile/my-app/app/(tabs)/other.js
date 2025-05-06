@@ -38,7 +38,7 @@ export default function OtherScreen() {
       <StatusBar barStyle="light-content" />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>Diğer İşlemler</Text>
       </View>
       
@@ -89,19 +89,19 @@ export default function OtherScreen() {
         {/* System Options */}
         <View style={styles.menuList}>
           <TouchableOpacity style={styles.listItem}>
-            <MaterialIcons name="settings" size={24} color="#3C3169" />
+            <MaterialIcons name="settings" size={24} color="#6B3DC9" />
             <Text style={styles.listItemText}>Ayarlar</Text>
             <MaterialIcons name="chevron-right" size={24} color="#777" />
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.listItem}>
-            <MaterialIcons name="help" size={24} color="#3C3169" />
+            <MaterialIcons name="help" size={24} color="#6B3DC9" />
             <Text style={styles.listItemText}>Yardım</Text>
             <MaterialIcons name="chevron-right" size={24} color="#777" />
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.listItem}>
-            <MaterialIcons name="info" size={24} color="#3C3169" />
+            <MaterialIcons name="info" size={24} color="#6B3DC9" />
             <Text style={styles.listItemText}>Hakkında</Text>
             <MaterialIcons name="chevron-right" size={24} color="#777" />
           </TouchableOpacity>
@@ -116,8 +116,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  header: {
-    backgroundColor: '#3C3169',
+  headerRow: {
+    backgroundColor: '#6B3DC9',
     paddingVertical: 15,
     paddingHorizontal: 15,
   },

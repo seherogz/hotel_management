@@ -237,7 +237,7 @@ export default function CheckOutScreen() {
             color: #333 !important;
           }
           .react-datepicker__day--selected {
-            background-color: #3C3169 !important;
+            background-color: #6B3DC9 !important;
             border-radius: 50% !important;
           }
           .react-datepicker__day:hover {
@@ -245,7 +245,7 @@ export default function CheckOutScreen() {
             border-radius: 50% !important;
           }
           .react-datepicker__day--keyboard-selected {
-            background-color: rgba(60, 49, 105, 0.2) !important;
+            background-color: rgba(107, 61, 201, 0.2) !important;
             border-radius: 50% !important;
           }
           .react-datepicker__navigation {
@@ -339,7 +339,7 @@ export default function CheckOutScreen() {
       </View>
       <View style={styles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color="#3C3169" />
+          <ActivityIndicator size="large" color="#6B3DC9" />
         ) : error ? (
           <Text style={{ color: 'red' }}>{error}</Text>
         ) : (
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    backgroundColor: '#3C3169',
+    backgroundColor: '#6B3DC9',
     paddingVertical: 15,
     paddingHorizontal: 15,
   },
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   dateBtnText: {
-    color: '#3C3169',
+    color: '#6B3DC9',
     fontWeight: 'bold',
   },
   content: {
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     marginTop: 10,
-    backgroundColor: '#3C3169',
+    backgroundColor: '#6B3DC9',
     borderRadius: 8,
     paddingVertical: 8,
     alignItems: 'center',

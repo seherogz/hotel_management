@@ -413,6 +413,41 @@ export default function CustomerInfoScreen() {
       }
     };
 
+    // Format reservation date to strip time part
+    const formatReservationDate = (dateString) => {
+      if (!dateString) return '';
+      try {
+        // If dateString looks like a date format with time part
+        if (dateString.includes('T') || dateString.includes('Z') || dateString.includes(':')) {
+          // Handle ISO format with T separator
+          if (dateString.includes('T')) {
+            return dateString.split('T')[0];
+          }
+          
+          // Handle date format with spaces and time
+          if (dateString.includes(' ') && dateString.includes(':')) {
+            return dateString.split(' ')[0];
+          }
+          
+          // If it's another format, try to parse it and return just the date part
+          const date = new Date(dateString);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+          }
+        }
+        
+        // For date formats like 2025-05-01T15:00:00Z or 2025-05-01 15:00:00Z
+        if (dateString.match(/^\d{4}-\d{2}-\d{2}[T ]/)) {
+          return dateString.substring(0, 10);
+        }
+        
+        return dateString;
+      } catch (e) {
+        console.log('Error formatting date:', e);
+        return dateString;
+      }
+    };
+
     return (
       <Modal
         visible={detailModalVisible}
@@ -568,24 +603,66 @@ export default function CustomerInfoScreen() {
               <View style={styles.detailSection}>
                 <Text style={styles.sectionTitle}>Reservation History</Text>
                 {(displayData.reservations && displayData.reservations.length > 0) ? (
-                  displayData.reservations.map((reservation, index) => (
+                  displayData.reservations.map((reservation, index) => {
+                    // For debugging field names
+                    console.log('Reservation data:', JSON.stringify(reservation, null, 2));
+                    
+                    return (
                     <View key={index} style={styles.reservationItem}>
                       <View style={styles.reservationHeader}>
                         <Text style={styles.reservationDate}>
-                          {reservation.checkInDate} - {reservation.checkOutDate}
+                          {formatReservationDate(reservation.startDate || reservation.checkInDate)} - {formatReservationDate(reservation.endDate || reservation.checkOutDate)}
                         </Text>
-                        <Text style={styles.reservationStatus}>
+                        <Text style={[styles.reservationStatus, 
+                          {color: reservation.status === 'Checked-In' ? '#FF9800' : 
+                                  reservation.status === 'Completed' ? '#4CAF50' : 
+                                  reservation.status === 'Pending' ? '#2196F3' : 
+                                  reservation.status === 'Cancelled' ? '#F44336' : '#4CAF50',
+                           backgroundColor: reservation.status === 'Checked-In' ? '#FFF3E0' : 
+                                           reservation.status === 'Completed' ? '#E8F5E9' : 
+                                           reservation.status === 'Pending' ? '#E3F2FD' : 
+                                           reservation.status === 'Cancelled' ? '#FFEBEE' : '#E8F5E9',
+                           paddingHorizontal: 8,
+                           paddingVertical: 4,
+                           borderRadius: 12,
+                           overflow: 'hidden',
+                          }]}>
                           {reservation.status || 'Completed'}
                         </Text>
                       </View>
-                      <Text style={styles.reservationRoom}>
-                        Room: {reservation.roomNumber || 'N/A'}
-                      </Text>
-                      <Text style={styles.reservationAmount}>
-                        Amount: ${reservation.amount || 'N/A'}
-                      </Text>
+                      
+                      <View style={styles.reservationContentBox}>
+                        <View style={styles.reservationRoomRow}>
+                          <MaterialIcons name="hotel" size={18} color="#6B3DC9" />
+                          <Text style={styles.reservationRoom}>
+                            {reservation.roomNumber || reservation.roomId || 'N/A'}
+                            {reservation.roomType ? ` (${reservation.roomType})` : ''}
+                          </Text>
+                        </View>
+                        
+                        {((reservation.status === 'Checked-In' || reservation.status === 'Completed')) && (
+                          <View style={styles.reservationDetailsDivider}>
+                            <View style={styles.detailWithIcon}>
+                              <MaterialIcons name="people" size={18} color="#6B3DC9" />
+                              <Text style={styles.reservationGuests}>
+                                2 guests
+                              </Text>
+                            </View>
+                            
+                            {reservation.price !== undefined && (
+                              <View style={styles.detailWithIcon}>
+                                <MaterialIcons name="attach-money" size={18} color="#6B3DC9" />
+                                <Text style={styles.reservationPrice}>
+                                  ${reservation.price}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  ))
+                  );
+                  })
                 ) : (
                   <Text style={styles.noDataText}>No reservation history</Text>
                 )}
@@ -1196,16 +1273,22 @@ const styles = StyleSheet.create({
   },
   reservationItem: {
     backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
     borderLeftWidth: 3,
     borderLeftColor: '#6B3DC9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   reservationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    alignItems: 'center',
+    marginBottom: 10,
   },
   reservationDate: {
     fontWeight: 'bold',
@@ -1213,18 +1296,61 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   reservationStatus: {
-    fontSize: 13,
-    color: '#4CAF50',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  reservationContentBox: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 6,
+    padding: 10,
+  },
+  reservationRoomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   reservationRoom: {
     fontSize: 14,
     color: '#555',
+    marginLeft: 8,
+    fontWeight: '500',
   },
-  reservationAmount: {
+  reservationDetailsDivider: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#eeeeee',
+    paddingTop: 8,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  reservationDetails: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginTop: 8,
+    flexWrap: 'wrap',
+  },
+  reservationPrice: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 5,
+    marginLeft: 4,
+    marginRight: 20,
+  },
+  reservationGuests: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#555',
+    marginLeft: 4,
+    marginRight: 20,
+  },
+  detailWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   actionButtons: {
     flexDirection: 'row',
