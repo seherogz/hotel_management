@@ -831,24 +831,73 @@ export default function RoomsScreen() {
     );
   };
 
-  const handleReservation = (room) => {
+  const handleReservation = (room, selectedDate = null) => {
     // Log room object to help debug
     console.log("Room for reservation:", JSON.stringify(room, null, 2));
-    
-    // Check if date range is already selected
-    if (!startDate || !endDate) {
-      // If dates aren't selected, open the reservation date modal first
-      setReservationRoom(room);
-      setReservationDates({ start: '', end: '' });
-      setShowReservationDateModal(true);
-    } else {
-      // If dates are already selected, proceed directly to guest name
-      setReservationRoom(room);
-      setReservationDates({ start: startDate, end: endDate });
+    // If we have a selected date from calendar view, use it
+    if (selectedDate) {
+      const formatDateString = (date) => {
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}.${month}.${year}`;
+      };
+      // Set start date to selected date
+      const startDateStr = formatDateString(selectedDate);
+      // Set end date to day after selected date
+      const endDate = new Date(selectedDate);
+      endDate.setDate(endDate.getDate() + 1);
+      const endDateStr = formatDateString(endDate);
+      // Set up the reservation with pre-filled dates
+      setReservationRoom({
+        ...room,
+        id: room.id || room.roomId || 0 // Oda ID'si mutlaka olsun
+      });
+      setReservationDates({ start: startDateStr, end: endDateStr });
       setCustomerIdNumber('');
       setNumberOfGuests('2');
       setReservationModalVisible(true);
+    } else {
+      // Original behavior for non-calendar reservation
+      if (!startDate || !endDate) {
+        setReservationRoom({
+          ...room,
+          id: room.id || room.roomId || 0
+        });
+        setReservationDates({ start: '', end: '' });
+        setShowReservationDateModal(true);
+      } else {
+        setReservationRoom({
+          ...room,
+          id: room.id || room.roomId || 0
+        });
+        setReservationDates({ start: startDate, end: endDate });
+        setCustomerIdNumber('');
+        setNumberOfGuests('2');
+        setReservationModalVisible(true);
+      }
     }
+  };
+
+  // Add this function to format the date nicely for display
+  const formatDateForDisplay = (date) => {
+    const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const dayName = dayNames[date.getDay()];
+    
+    return `${day}.${month}.${year} ${dayName}`;
+  };
+
+  // Add this function to show the room details with reservation option
+  const showRoomDetailsForReservation = (room, selectedDate) => {
+    setSelectedRoom({
+      ...room,
+      showReservationOption: true,
+      selectedDate
+    });
+    setModalVisible(true);
   };
 
   const confirmReservation = async () => {
@@ -1420,6 +1469,10 @@ export default function RoomsScreen() {
   const renderRoomDetails = () => {
     if (!selectedRoom) return null;
     
+    // Check if the room is available for reservation
+    const isAvailableForReservation = selectedRoom.showReservationOption || 
+                                     selectedRoom.status === 'available';
+    
     return (
       <Modal
         animationType="slide"
@@ -1430,7 +1483,10 @@ export default function RoomsScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Oda {selectedRoom.id}</Text>
+              <Text style={styles.modalTitle}>
+                Oda {selectedRoom.roomNumber || selectedRoom.id}
+                {selectedRoom.formattedDate ? ` - ${selectedRoom.formattedDate}` : ''}
+              </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <MaterialIcons name="close" size={24} color="white" />
               </TouchableOpacity>
@@ -1438,11 +1494,15 @@ export default function RoomsScreen() {
             
             <View style={styles.modalBody}>
               <View style={styles.roomInfoSection}>
-                <Text style={styles.sectionTitle}>Oda Bilgileri</Text>
-                <View style={[styles.statusBadge, {backgroundColor: getStatusColor(selectedRoom.status)}]}>
-                  <Text style={styles.statusBadgeText}>
-                    {getStatusText(selectedRoom.status)}
-                  </Text>
+                <Text style={styles.sectionTitle}>Oda Özellikleri</Text>
+                
+                {/* Status badge */}
+                <View style={styles.statusBadgeContainer}>
+                  <View style={[styles.statusBadge, {backgroundColor: getStatusColor(selectedRoom.status)}]}>
+                    <Text style={styles.statusBadgeText}>
+                      {getStatusText(selectedRoom.status)}
+                    </Text>
+                  </View>
                 </View>
                 
                 {/* Gelecek tarih bilgisi varsa göster */}
@@ -1458,17 +1518,48 @@ export default function RoomsScreen() {
                   </View>
                 )}
                 
-                <Text style={styles.roomDetailText}>Kat: {selectedRoom.floor}</Text>
-                <Text style={styles.roomDetailText}>Kapasite: {selectedRoom.capacity}</Text>
-                <Text style={styles.roomDetailText}>Gecelik Fiyat: {selectedRoom.price}</Text>
-                <Text style={styles.roomDetailText}>Oda Tipi: {selectedRoom.roomType}</Text>
-                <Text style={styles.roomDetailText}>Açıklama: {selectedRoom.description}</Text>
+                {/* Room details */}
+                <View style={styles.roomDetailsGrid}>
+                  <View style={styles.roomDetailRow}>
+                    <Text style={styles.roomDetailLabel}>Kapasite:</Text>
+                    <Text style={styles.roomDetailValue}>{selectedRoom.capacity}</Text>
+                  </View>
+                  
+                  <View style={styles.roomDetailRow}>
+                    <Text style={styles.roomDetailLabel}>Oda Tipi:</Text>
+                    <Text style={styles.roomDetailValue}>{selectedRoom.roomType}</Text>
+                  </View>
+                  
+                  <View style={styles.roomDetailRow}>
+                    <Text style={styles.roomDetailLabel}>Gecelik Fiyat:</Text>
+                    <Text style={styles.roomDetailValue}>{selectedRoom.price}</Text>
+                  </View>
+                </View>
               </View>
+              
+              {/* Reservation section for available rooms */}
+              {isAvailableForReservation && (
+                <View style={styles.reservationSection}>
+                  <TouchableOpacity 
+                    style={styles.reserveButtonModal}
+                    onPress={() => {
+                      setModalVisible(false);
+                      const selectedDateObj = selectedRoom.selectedDate 
+                        ? new Date(selectedRoom.selectedDate) 
+                        : new Date();
+                      handleReservation(selectedRoom, selectedDateObj);
+                    }}
+                  >
+                    <MaterialIcons name="event-available" size={18} color="white" />
+                    <Text style={styles.reserveButtonText}>REZERVASYON OLUŞTUR</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
               
               {selectedRoom.status === 'occupied' && (
                 <View style={styles.guestSection}>
                   <Text style={styles.sectionTitle}>Misafir Bilgileri</Text>
-                  <Text style={styles.roomDetailText}>İsim: {selectedRoom.guest}</Text>
+                  <Text style={styles.roomDetailText}>İsim: {selectedRoom.guest || "Misafir"}</Text>
                   <Text style={styles.roomDetailText}>Giriş Tarihi: {selectedRoom.checkIn}</Text>
                   <Text style={styles.roomDetailText}>Çıkış Tarihi: {selectedRoom.checkOut}</Text>
                   
@@ -1485,8 +1576,8 @@ export default function RoomsScreen() {
               {selectedRoom.status === 'maintenance' && (
                 <View style={styles.maintenanceSection}>
                   <Text style={styles.sectionTitle}>Bakım Bilgileri</Text>
-                  <Text style={styles.roomDetailText}>Bakım Sebebi: {selectedRoom.maintenance}</Text>
-                  <Text style={styles.roomDetailText}>Tahmini Bitiş: {formatMaintenanceDate(selectedRoom.expectedCompletion)}</Text>
+                  <Text style={styles.roomDetailText}>Bakım Sebebi: {selectedRoom.maintenance || "Bakım yapılıyor"}</Text>
+                  <Text style={styles.roomDetailText}>Tahmini Bitiş: {formatMaintenanceDate(selectedRoom.expectedCompletion) || "Belirtilmemiş"}</Text>
                 </View>
               )}
               
@@ -1494,7 +1585,6 @@ export default function RoomsScreen() {
                 <Text style={styles.sectionTitle}>Oda Özellikleri</Text>
                 <View style={styles.amenitiesList}>
                   {selectedRoom.features && selectedRoom.features.map((item, index) => {
-                    // Bu Wi-Fi özelliği mi kontrol et
                     const isWifi = item.toLowerCase().includes('wifi') || item.toLowerCase().includes('wi-fi');
                     
                     return (
@@ -1510,6 +1600,13 @@ export default function RoomsScreen() {
                   })}
                 </View>
               </View>
+              
+              {selectedRoom.description && (
+                <View style={styles.descriptionSection}>
+                  <Text style={styles.sectionTitle}>Açıklama</Text>
+                  <Text style={styles.descriptionText}>{selectedRoom.description}</Text>
+                </View>
+              )}
               
               <TouchableOpacity 
                 style={styles.closeButton}
@@ -1528,30 +1625,28 @@ export default function RoomsScreen() {
   const handleCancelReservation = async (room) => {
     try {
       setIsLoading(true);
-      
-      // Call API to cancel reservation
-      if (room.reservationId || room.currentReservationId) {
-        // Gerçek rezervasyon ID'sini al
-        const reservationId = room.reservationId || room.currentReservationId;
+
+      // Tüm olası reservationId alanlarını kontrol et
+      const reservationId =
+        room.selectedDateReservationId ||
+        room.reservationId ||
+        room.currentReservationId;
+
+      if (reservationId) {
         console.log("Cancelling reservation ID:", reservationId);
-        
+
         // API'yi çağır
         const response = await roomService.cancelReservation(reservationId);
         console.log("Cancellation response:", response);
-        
-        // Close modal if open
+
         setModalVisible(false);
-        
-        // Show success message 
+
         Alert.alert(
           'Başarılı',
           'Rezervasyon başarıyla iptal edildi.',
-          [{ 
-            text: 'Tamam'
-          }]
+          [{ text: 'Tamam' }]
         );
-        
-        // Başarılı işlem sonrası listeyi yenile
+
         refreshRooms();
       } else {
         console.error('Reservation ID not found');
@@ -1559,20 +1654,17 @@ export default function RoomsScreen() {
       }
     } catch (error) {
       console.error('Error cancelling reservation:', error);
-      
-      // Log error details for debugging
       if (error.response?.data?.message) {
         console.error('API Error:', error.response.data.message);
       } else if (error.message) {
         console.error('Error Message:', error.message);
       }
-      
       Alert.alert(
-        'İptal Hatası', 
+        'İptal Hatası',
         'Rezervasyon iptal edilirken bir hata oluştu. Lütfen tekrar deneyin.',
-        [{ 
-          text: 'Tamam', 
-          onPress: () => refreshRooms() 
+        [{
+          text: 'Tamam',
+          onPress: () => refreshRooms()
         }]
       );
     } finally {
@@ -1584,6 +1676,7 @@ export default function RoomsScreen() {
   const fetchCalendarViewData = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       
       // Format dates for API (YYYY-MM-DD)
       const formatDateForApi = (date) => {
@@ -1599,19 +1692,69 @@ export default function RoomsScreen() {
         EndDate: formatDateForApi(calendarViewRange.end)
       };
       
+      console.log("Requesting calendar data with params:", params);
+      
       // Call API
-      const calendarData = await roomService.getCalendarViewData(params);
+      const response = await roomService.getCalendarViewData(params);
+      console.log("Calendar API response:", response);
+      
+      // Get the actual data array based on API response format
+      let calendarData;
+      if (Array.isArray(response)) {
+        calendarData = response;
+      } else if (response && Array.isArray(response.data)) {
+        calendarData = response.data;
+      } else {
+        console.error("Unexpected API response format:", response);
+        setError("API'den beklenmeyen veri formatı alındı. Lütfen tekrar deneyin.");
+        return;
+      }
       
       // Process and update the local state with returned data
       const processedRooms = calendarData.map(roomData => {
-        // Transform the API data to match our existing room format
-        return roomService.formatRoomData(roomData);
+        // Check if the room data already has dailyStatuses for calendar view
+        if (roomData.dailyStatuses && Array.isArray(roomData.dailyStatuses)) {
+          // Data is already in calendar format, just format it for our UI
+          return {
+            ...roomService.formatRoomData(roomData),
+            dailyStatuses: roomData.dailyStatuses.map(day => ({
+              date: day.date,
+              status: day.status.toLowerCase() || 'available',
+              reservationId: day.reservationId,
+              maintenanceId: day.maintenanceId,
+              guestName: day.guestName
+            }))
+          };
+        } else {
+          // Standard room data - transform to match our UI format and calculate daily statuses
+          const formattedRoom = roomService.formatRoomData(roomData);
+          
+          // Generate daily statuses for each day in the range
+          const dailyStatuses = [];
+          const start = new Date(calendarViewRange.start);
+          const end = new Date(calendarViewRange.end);
+          
+          // Loop through each day and determine status
+          for (let day = new Date(start); day <= end; day.setDate(day.getDate() + 1)) {
+            const status = getRoomStatusForDate(formattedRoom, new Date(day));
+            dailyStatuses.push({
+              date: formatDateForApi(new Date(day)),
+              status: status
+            });
+          }
+          
+          return {
+            ...formattedRoom,
+            dailyStatuses
+          };
+        }
       });
       
+      console.log("Processed rooms for calendar view:", processedRooms.map(r => r.roomNumber));
       setRooms(processedRooms);
     } catch (error) {
       console.error('Error fetching calendar data:', error);
-      setError('Takvim verisi yüklenirken bir hata oluştu.');
+      setError('Takvim verisi yüklenirken bir hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
     } finally {
       setIsLoading(false);
     }
@@ -1720,7 +1863,7 @@ export default function RoomsScreen() {
     return `${formatDate(calendarViewRange.start)} - ${formatDate(calendarViewRange.end)}`;
   };
 
-  // Modify the renderCalendarView function to modify the calendar rendering
+  // Modify the renderCalendarView function to display daily statuses
   const renderCalendarView = () => {
     const dates = generateCalendarDates();
     const filteredRoomsByNumber = [...filteredRooms].sort((a, b) => parseInt(a.id) - parseInt(b.id));
@@ -1764,13 +1907,7 @@ export default function RoomsScreen() {
           
           <TouchableOpacity 
             style={styles.todayButton}
-            onPress={() => {
-              const today = new Date();
-              setCalendarViewRange({
-                start: today,
-                end: new Date(new Date().setDate(today.getDate() + 14))
-              });
-            }}
+            onPress={goToCurrentDate}
           >
             <Text style={styles.todayButtonText}>BUGÜN</Text>
           </TouchableOpacity>
@@ -1795,21 +1932,91 @@ export default function RoomsScreen() {
               {filteredRoomsByNumber.map((room) => (
                 <View key={room.id} style={styles.roomRow}>
                   <View style={styles.roomNumberCell}>
-                    <Text style={styles.roomNumberText}>{room.id}</Text>
+                    <Text style={styles.roomNumberText}>{room.roomNumber}</Text>
+                    <Text style={styles.roomTypeIndicator}>{room.roomType}</Text>
                   </View>
                   
                   {dates.map((date, dateIndex) => {
-                    // Get the status for this room on this specific date
-                    const status = getRoomStatusForDate(room, date);
+                    // Format the date to match API format YYYY-MM-DD for comparison
+                    const formatDateStr = (date) => {
+                      return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    };
+                    
+                    // Try to get status from dailyStatuses if available
+                    let status = 'available';
+                    if (room.dailyStatuses && Array.isArray(room.dailyStatuses)) {
+                      const dailyStatus = room.dailyStatuses.find(d => 
+                        d.date === formatDateStr(date)
+                      );
+                      if (dailyStatus) {
+                        status = dailyStatus.status;
+                      }
+                    } else {
+                      // Fall back to calculating status
+                      status = getRoomStatusForDate(room, date);
+                    }
                     
                     return (
                       <TouchableOpacity 
-                        key={dateIndex} 
+                        key={`cal-cell-${room.id}-${dateIndex}`} 
                         style={[
                           styles.roomStatusCell,
                           { backgroundColor: getStatusColor(status) }
                         ]}
-                        onPress={() => showRoomDetails(room)}
+                        onPress={() => {
+                          // When clicking a cell, check status and show appropriate popup
+                          if (status === 'available') {
+                            // For available rooms, show the reservation popup dialog
+                            const selectedDateStr = formatDateStr(date);
+                            const formattedDate = formatDateForDisplay(date);
+                            
+                            // Create a copy of the room with reservation info for the popup
+                            const roomForReservation = {
+                              ...room,
+                              status: 'available',
+                              selectedDate: selectedDateStr,
+                              formattedDate: formattedDate
+                            };
+                            
+                            // Show room details with reservation option
+                            showRoomDetailsForReservation(roomForReservation, date);
+                          } else if (status === 'occupied') {
+                            let reservationId = null;
+                            let guestName = null;
+                            let checkIn = null;
+                            let checkOut = null;
+                            if (room.dailyStatuses && Array.isArray(room.dailyStatuses)) {
+                              const dailyStatus = room.dailyStatuses.find(d => d.date === formatDateStr(date));
+                              if (dailyStatus) {
+                                reservationId = dailyStatus.reservationId;
+                                guestName = dailyStatus.guestName;
+                                checkIn = dailyStatus.checkIn;
+                                checkOut = dailyStatus.checkOut;
+                              }
+                            }
+                            const roomWithDateInfo = {
+                              ...room,
+                              status: 'occupied', // GÜNCELLE!
+                              selectedDate: formatDateStr(date),
+                              formattedDate: formatDateForDisplay(date),
+                              selectedDateStatus: status,
+                              selectedDateReservationId: reservationId,
+                              selectedDateGuestName: guestName,
+                              checkIn,
+                              checkOut
+                            };
+                            showRoomDetails(roomWithDateInfo);
+                          } else {
+                            // For other statuses, just show the regular room details
+                            const roomWithDateInfo = {
+                              ...room,
+                              selectedDate: formatDateStr(date),
+                              formattedDate: formatDateForDisplay(date),
+                              selectedDateStatus: status
+                            };
+                            showRoomDetails(roomWithDateInfo);
+                          }
+                        }}
                       />
                     );
                   })}
@@ -1946,6 +2153,21 @@ export default function RoomsScreen() {
         </View>
       </Modal>
     );
+  };
+
+  // Function to initialize to today's date for calendar view
+  const goToCurrentDate = () => {
+    const today = new Date();
+    const twoWeeksLater = new Date();
+    twoWeeksLater.setDate(today.getDate() + 14);
+    
+    setCalendarViewRange({
+      start: today,
+      end: twoWeeksLater
+    });
+    
+    // Inform the user
+    Alert.alert('Tarih Güncellemesi', 'Takvim bugünün tarihine getirildi.');
   };
 
   return (
@@ -2763,16 +2985,18 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   closeButton: {
-    backgroundColor: '#6B3DC9',
+    backgroundColor: '#673AB7',
     paddingVertical: 12,
     borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 10
   },
   closeButtonText: {
     color: 'white',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '500',
+    textTransform: 'uppercase'
   },
   dropdownMenu: {
     backgroundColor: 'white',
@@ -3640,5 +3864,111 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '500',
+  },
+  roomTypeIndicator: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  reserveButtonModal: {
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+    marginTop: 10,
+    marginBottom: 15,
+    height: 45,
+  },
+  reserveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 10,
+    textTransform: 'uppercase',
+  },
+  statusBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  statusBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    marginBottom: 5,
+  },
+  statusBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  roomDetailsGrid: {
+    flexDirection: 'column',
+    marginBottom: 15,
+  },
+  roomDetailRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    width: '100%',
+  },
+  roomDetailLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+    width: 120,
+  },
+  roomDetailValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+  },
+  amenitiesSection: {
+    marginBottom: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eeeeee',
+    paddingTop: 15,
+  },
+  amenitiesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 10,
+  },
+  amenityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    marginRight: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#eeeeee',
+  },
+  amenityText: {
+    color: '#555',
+    fontSize: 12,
+    marginLeft: 5,
+  },
+  descriptionSection: {
+    marginBottom: 20,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+  },
+  reservationSection: {
+    marginTop: 5,
+    marginBottom: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eeeeee',
+    paddingTop: 15,
+    alignItems: 'center',
   },
 }); 

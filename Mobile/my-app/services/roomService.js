@@ -113,14 +113,27 @@ const roomService = {
   // Get calendar view data for the specified date range
   getCalendarViewData: async (params) => {
     if (!params.StartDate || !params.EndDate) {
-      return Promise.reject(new Error('Start date and end date are required for calendar view.'));
+      return Promise.reject(new Error('Takvim görünümü için başlangıç ve bitiş tarihleri gereklidir.'));
     }
     try {
-      console.log("Getting calendar view data with params:", params);
+      console.log("Takvim görünümü için API isteği yapılıyor, parametreler:", params);
       const response = await apiClient.get('/v1/Room/CalendarView', { params });
+      
+      // Log success
+      console.log(`Takvim verisi başarıyla alındı. ${response.data ? 
+        (Array.isArray(response.data) ? response.data.length : 'Veri yapısı dizi değil') : 
+        'Veri yok'} oda.`);
+      
       return response.data;
     } catch (error) {
-      console.error('Error fetching calendar data:', error.response?.data || error.message);
+      // Detailed error logging
+      console.error('Takvim verisi getirilirken hata:', error);
+      if (error.response?.status) {
+        console.error(`HTTP Status: ${error.response.status}`);
+      }
+      if (error.response?.data) {
+        console.error('API Error Response:', error.response.data);
+      }
       throw error;
     }
   },
@@ -129,7 +142,6 @@ const roomService = {
   reserveRoom: async (reservationData) => {
     try {
       console.log("Creating reservation with raw data:", reservationData);
-      
       // Create a simplified API request data with proper date format
       const apiRequestData = {
         customerIdNumber: reservationData.customerIdNumber.toString(),
@@ -139,13 +151,10 @@ const roomService = {
         endDate: reservationData.checkOutDate,
         numberOfGuests: parseInt(reservationData.numberOfGuests) || 1
       };
-      
       console.log("API Request simplified payload:", JSON.stringify(apiRequestData, null, 2));
-      
-      // Use axios instead of fetch for consistency
+      // Doğru şekilde body gönder
       const response = await apiClient.post('/v1/Reservation', apiRequestData);
       console.log("API Response:", response.data);
-      
       return response.data;
     } catch (error) {
       console.error('Error creating reservation:', error.response?.data || error.message);
