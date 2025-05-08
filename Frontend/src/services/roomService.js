@@ -32,6 +32,92 @@ const roomService = {
       throw error;
     }
   },
+  
+  // Create a new room
+  createRoom: async (roomData) => {
+    try {
+      console.log('API isteği: /v1/Room (POST)', roomData);
+      // API'nin beklediği değişken isimlerini kullan
+      const roomPayload = {
+        ...roomData,
+        // capacity -> roomCapacity api dönüşümü zaten form tarafında yapılıyor
+      };
+      
+      const response = await apiClient.post('/v1/Room', roomPayload);
+      return response.data;
+    } catch (error) {
+      console.error('Oda oluşturulurken hata:', error.response?.data || error.message);
+      throw error.response?.data || new Error('Oda oluşturulurken bir API hatası oluştu.');
+    }
+  },
+  
+  // Update room details
+  updateRoom: async (id, roomData) => {
+    try {
+      console.log(`API isteği: /v1/Room/${id} (PUT)`, roomData);
+      // API'nin beklediği değişken isimlerini kullan
+      const roomPayload = {
+        ...roomData,
+        id: id, // API'ye id değerini ekle
+        // capacity -> roomCapacity api dönüşümü zaten form tarafında yapılıyor
+      };
+      
+      const response = await apiClient.put(`/v1/Room/${id}`, roomPayload);
+      return response.data;
+    } catch (error) {
+      console.error(`Oda (ID: ${id}) güncellenirken hata:`, error.response?.data || error.message);
+      throw error.response?.data || new Error('Oda güncellenirken bir API hatası oluştu.');
+    }
+  },
+  
+  // Delete a room
+  deleteRoom: async (id) => {
+    try {
+      console.log(`API isteği: /v1/Room/${id} (DELETE)`);
+      const response = await apiClient.delete(`/v1/Room/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Oda (ID: ${id}) silinirken hata:`, error.response?.data || error.message);
+      throw error.response?.data || new Error('Oda silinirken bir API hatası oluştu.');
+    }
+  },
+  
+  // Add amenities to a room
+  addRoomAmenities: async (roomId, amenities) => {
+    try {
+      console.log(`API isteği: /v1/Room/${roomId}/amenities (POST)`, amenities);
+      const response = await apiClient.post(`/v1/Room/${roomId}/amenities`, amenities);
+      return response.data;
+    } catch (error) {
+      console.error(`Oda (ID: ${roomId}) özelliklerini eklerken hata:`, error.response?.data || error.message);
+      throw error.response?.data || new Error('Oda özellikleri eklenirken bir API hatası oluştu.');
+    }
+  },
+  
+  // Add maintenance issue to a room
+  addMaintenanceIssue: async (roomId, issueData) => {
+    try {
+      console.log(`API isteği: /v1/Room/${roomId}/maintenance-issues (POST)`, issueData);
+      const response = await apiClient.post(`/v1/Room/${roomId}/maintenance-issues`, issueData);
+      return response.data;
+    } catch (error) {
+      console.error(`Oda (ID: ${roomId}) bakım sorunu eklenirken hata:`, error.response?.data || error.message);
+      throw error.response?.data || new Error('Bakım sorunu eklenirken bir API hatası oluştu.');
+    }
+  },
+  
+  // Resolve maintenance issue
+  resolveMaintenanceIssue: async (roomId, issueId) => {
+    try {
+      console.log(`API isteği: /v1/Room/${roomId}/maintenance-issues/${issueId}/resolve (POST)`);
+      const response = await apiClient.post(`/v1/Room/${roomId}/maintenance-issues/${issueId}/resolve`);
+      return response.data;
+    } catch (error) {
+      console.error(`Bakım sorunu (ID: ${issueId}) çözülürken hata:`, error.response?.data || error.message);
+      throw error.response?.data || new Error('Bakım sorunu çözülürken bir API hatası oluştu.');
+    }
+  },
+  
 /**
    * Belirtilen tarih aralığı için takvim görünümü verisini getirir.
    * @param {object} params - API'ye gönderilecek query parametreleri ({ StartDate, EndDate })
@@ -53,27 +139,7 @@ const roomService = {
       throw error.response?.data || new Error('Takvim verisi getirilirken bir hata oluştu.');
     }
   },
-  /**
-   * Belirtilen tarih aralığı için takvim görünümü verisini getirir.
-   * @param {object} params - API'ye gönderilecek query parametreleri ({ StartDate, EndDate })
-   * @returns {Promise<Array>} - Her oda için günlük durumları içeren dizi [{ roomId, roomNumber, dailyStatuses: [{ date, status, ... }] }]
-   */
-  getCalendarViewData: async (params) => { // Parametreler: { StartDate, EndDate }
-    if (!params.StartDate || !params.EndDate) {
-      return Promise.reject(new Error('Takvim verisi için başlangıç ve bitiş tarihleri gereklidir.'));
-    }
-    try {
-      console.log("API İsteği: /v1/Room/CalendarView / Parametreler:", params);
-      // Yeni endpoint'e GET isteği at
-      const response = await apiClient.get('/v1/Room/CalendarView', { params });
-      // API yanıtının doğrudan { data: [...] } formatında geldiğini varsayıyoruz
-      // veya direkt [...] dizisi dönüyorsa ona göre ayarla
-      return response.data;
-    } catch (error) {
-      console.error('Takvim verisi getirilirken hata:', error.response?.data || error.message);
-      throw error.response?.data || new Error('Takvim verisi getirilirken bir hata oluştu.');
-    }
-  },
+  
   /**
    * Mevcut bir rezervasyonu iptal eder (POST metodu ile, boş body).
    * @param {number | string} reservationId - İptal edilecek rezervasyonun ID'si.

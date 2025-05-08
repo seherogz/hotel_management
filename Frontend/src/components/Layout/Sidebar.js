@@ -29,7 +29,7 @@ const Sidebar = () => {
     { id: 'roomStatus', name: 'Room Status', icon: <FaBed className={styles.navIcon} />, path: '/room-status' }, //
     { id: 'accounting', name: 'Accounting', icon: <FaCalculator className={styles.navIcon} />, path: '/accounting' }, //
     { id: 'financialReports', name: 'Financial Reports', icon: <FaChartLine className={styles.navIcon} />, path: '/financial-reports' }, //
-    { id: 'staff', name: 'Manage Staff', icon: <FaUsers className={styles.navIcon} />, path: '/manage-staff' }, //
+    { id: 'staff', name: 'Manage Staff', icon: <FaUsers className={styles.navIcon} />, path: '/staff' }, //
     { id: 'rooms', name: 'Manage Rooms', icon: <FaDoorOpen className={styles.navIcon} />, path: '/manage-rooms' }, //
   ];
 

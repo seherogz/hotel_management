@@ -151,16 +151,16 @@ namespace CleanArchitecture.Core.Mappings
 
 
             // ================== SHIFT MAPPINGS ==================
-            // GetStaffByIdViewModel içindeki Shifts listesi için
+            // GetStaffByIdViewModel içindeki Shifts listesi için (Bu aynı kalabilir, detaylı görünüm için?)
             CreateMap<Shift, Features.Staff.Queries.GetStaffById.ShiftViewModel>()
-                .ForMember(dest => dest.StartTime, opt => opt.MapFrom(src => src.StartTime.ToString(@"hh\:mm"))) // TimeSpan -> string
-                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime.ToString(@"hh\:mm"))); // TimeSpan -> string
+                .ForMember(dest => dest.StartTime, opt => opt.MapFrom(src => src.StartTime.ToString(@"hh\:mm")))
+                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime.ToString(@"hh\:mm")));
 
-            // GetShiftsByStaffQueryHandler içindeki Shifts listesi için (aynı ViewModel'ı kullanıyor gibi)
+            // GetShiftsByStaffQueryHandler içindeki Shifts listesi için (GÜNCELLENDİ)
             CreateMap<Shift, Features.Shifts.Queries.GetShiftsByStaff.GetShiftsByStaffViewModel>()
                 .ForMember(dest => dest.StartTime, opt => opt.MapFrom(src => src.StartTime.ToString(@"hh\:mm")))
-                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime.ToString(@"hh\:mm")))
-                .ForMember(dest => dest.ShiftDate, opt => opt.MapFrom(src => src.ShiftDay.ToString("yyyy-MM-dd")));
+                .ForMember(dest => dest.EndTime, opt => opt.MapFrom(src => src.EndTime.ToString(@"hh\:mm")));
+            // ShiftType ve ShiftDate için map'leme yok. DayOfTheWeek ve Id otomatik maplenir.
 
             // ================== INCOME/EXPENSE MAPPINGS ==================
             CreateMap<CreateIncomeCommand, Income>();

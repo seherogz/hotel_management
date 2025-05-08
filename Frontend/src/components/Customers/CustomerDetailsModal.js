@@ -119,7 +119,7 @@ const CustomerDetailsModal = ({ open, onClose, customerId }) => {
   const handleTabChange = (event, newValue) => { setActiveTab(newValue); };
   const handleChangePage = (event, newPage) => { setPage(newPage); };
   const handleChangeRowsPerPage = (event) => { setRowsPerPage(parseInt(event.target.value, 10)); setPage(0); };
-  
+
   // Edit butonu için fonksiyon
   const handleEditClick = () => {
     setEditedCustomer({...customer}); // Değişiklikleri saklayacak kopyayı oluştur
@@ -282,8 +282,8 @@ const CustomerDetailsModal = ({ open, onClose, customerId }) => {
             </IconButton>
           )}
           <IconButton edge="end" color="inherit" onClick={isEditing ? handleCancelEdit : onClose} aria-label="close">
-            <CloseIcon />
-          </IconButton>
+          <CloseIcon />
+        </IconButton>
         </Box>
       </DialogTitle>
 
@@ -399,7 +399,7 @@ const CustomerDetailsModal = ({ open, onClose, customerId }) => {
                               margin="dense"
                             />
                           ) : (
-                            <Typography variant="body1" sx={{ fontWeight: 'medium' }}>{customer.email || 'N/A'}</Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>{customer.email || 'N/A'}</Typography>
                           )}
                         </Box>
                       </Box>
@@ -421,7 +421,7 @@ const CustomerDetailsModal = ({ open, onClose, customerId }) => {
                               margin="dense"
                             />
                           ) : (
-                            <Typography variant="body1" sx={{ fontWeight: 'medium' }}>{customer.phone || 'N/A'}</Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>{customer.phone || 'N/A'}</Typography>
                           )}
                         </Box>
                       </Box>
@@ -448,7 +448,7 @@ const CustomerDetailsModal = ({ open, onClose, customerId }) => {
                               margin="dense"
                             />
                           ) : (
-                            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{customer.idNumber || 'N/A'}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{customer.idNumber || 'N/A'}</Typography>
                           )}
                         </Box>
                       </Box>
@@ -469,7 +469,7 @@ const CustomerDetailsModal = ({ open, onClose, customerId }) => {
                               margin="dense"
                             />
                           ) : (
-                            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{customer.nationality || 'N/A'}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{customer.nationality || 'N/A'}</Typography>
                           )}
                         </Box>
                       </Box>
@@ -492,7 +492,7 @@ const CustomerDetailsModal = ({ open, onClose, customerId }) => {
                               margin="dense"
                             />
                           ) : (
-                            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{formatBirthDate(customer.birthDate)}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{formatBirthDate(customer.birthDate)}</Typography>
                           )}
                         </Box>
                       </Box>
@@ -515,7 +515,7 @@ const CustomerDetailsModal = ({ open, onClose, customerId }) => {
                               minRows={2}
                             />
                           ) : (
-                            <Typography variant="body2" sx={{ fontWeight: 'medium', wordBreak: 'break-word' }}>{customer.address || 'N/A'}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'medium', wordBreak: 'break-word' }}>{customer.address || 'N/A'}</Typography>
                           )}
                         </Box>
                       </Box>
@@ -544,7 +544,7 @@ const CustomerDetailsModal = ({ open, onClose, customerId }) => {
                       />
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ pl: 4.5 }}> {customer.notes || 'No notes available.'} </Typography>
+                  <Typography variant="body2" sx={{ pl: 4.5 }}> {customer.notes || 'No notes available.'} </Typography>
                   )}
                 </Paper>
 

@@ -11,6 +11,8 @@ import AccountingPage from './components/Accounting/Accounting';
 import CheckIn from './components/CheckIn/CheckIn';
 import CheckOut from './components/CheckOut/CheckOut';
 import CustomerInfo from './components/Customers/CustomerInfo';
+import Staff from './components/Staff/Staff';
+import ManageRoom from './components/ManageRoom/ManageRoom';
 
 // ProtectedRoute: only for authenticated users
 const ProtectedRoute = ({ children }) => {
@@ -57,6 +59,8 @@ function App() {
           <Route path="check-in" element={<CheckIn />} />
           <Route path="check-out" element={<CheckOut />} />
           <Route path="customer-info" element={<CustomerInfo />} />
+          <Route path="staff" element={<Staff />} />
+          <Route path="manage-rooms" element={<ManageRoom />} />
           {/* Admin-only */}
           <Route
             path="register"

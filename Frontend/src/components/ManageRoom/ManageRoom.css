@@ -1,0 +1,111 @@
+.manage-room-container {
+  padding: 20px;
+}
+
+.manage-room-container h1 {
+  margin-bottom: 24px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Özet kartları */
+.room-summary {
+  margin-bottom: 24px;
+}
+
+.summary-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.summary-card h3 {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.summary-content {
+  display: flex;
+  justify-content: space-between;
+}
+
+.total-count {
+  font-size: 26px;
+  font-weight: bold;
+  color: #333;
+}
+
+.available-count {
+  font-size: 26px;
+  font-weight: bold;
+  color: #52c41a;
+}
+
+/* Filtreler */
+.filters-container {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Oda kartları */
+.room-tabs {
+  margin-top: 20px;
+}
+
+.room-list {
+  margin-top: 16px;
+}
+
+.room-card {
+  border-radius: 8px;
+  transition: all 0.3s;
+  height: 100%;
+}
+
+.room-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.card-content p {
+  margin-bottom: 8px;
+  color: #666;
+}
+
+.price {
+  font-size: 18px;
+  font-weight: bold;
+  color: #1890ff;
+  margin-bottom: 12px;
+}
+
+.room-features {
+  margin-top: 10px;
+}
+
+.feature-tag {
+  display: inline-block;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-right: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #666;
+} 
