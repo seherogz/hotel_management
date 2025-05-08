@@ -104,9 +104,9 @@ export default function CheckInScreen() {
         // Web'de başarılı bildirimi
         alert(`✅ Check-in successful for reservation ${reservationId}.`);
         
-        // Sayfayı yenileme - URL yönlendirmesi yerine
-        // Orijinal URL'yi muhafaza edelim
-        window.location.reload();
+        // Sayfa yenilemesi yerine verileri yeniden çekiyoruz
+        setPage(1); // Sayfa numarasını sıfırla
+        await fetchCheckIns({page: 1}); // Verileri yeniden çek
       } else {
         // Native platformlarda
         Alert.alert('Başarılı', `Check-in işlemi ${reservationId} için tamamlandı.`);

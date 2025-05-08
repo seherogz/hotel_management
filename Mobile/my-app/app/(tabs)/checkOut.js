@@ -104,8 +104,9 @@ export default function CheckOutScreen() {
         // Web'de başarılı bildirimi
         alert(`✅ Check-out successful for reservation ${reservationId}.`);
         
-        // Sayfayı yenileme - URL yönlendirmesi yerine
-        window.location.reload();
+        // Sayfa yenilemesi yerine verileri yeniden çekiyoruz
+        setPage(1); // Sayfa numarasını sıfırla
+        await fetchCheckOuts({page: 1}); // Verileri yeniden çek
       } else {
         // Native platformlarda
         Alert.alert('Başarılı', `Check-out işlemi ${reservationId} için tamamlandı.`);
