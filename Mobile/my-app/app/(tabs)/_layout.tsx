@@ -43,48 +43,90 @@ export default function TabLayout() {
           backgroundColor: '#f8f8f8',
           borderTopColor: '#ddd',
           height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        tabBarShowLabel: false,
+        tabBarIconStyle: {
+          width: 32,
+          height: 32,
         },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="home" size={size} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <MaterialIcons name="home" size={focused ? 32 : 28} color={color} />
+              {focused && <View style={styles.activeIndicator} />}
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="customerInfo"
         options={{
           title: 'Customers',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="people" size={size} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <MaterialIcons name="people" size={focused ? 32 : 28} color={color} />
+              {focused && <View style={styles.activeIndicator} />}
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="checkIn"
         options={{
           title: 'Check-In',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="login" size={size} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <MaterialIcons name="login" size={focused ? 32 : 28} color={color} />
+              {focused && <View style={styles.activeIndicator} />}
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="checkOut"
         options={{
           title: 'Check-Out',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="logout" size={size} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <MaterialIcons name="logout" size={focused ? 32 : 28} color={color} />
+              {focused && <View style={styles.activeIndicator} />}
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="rooms"
         options={{
           title: 'Rooms',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="hotel" size={size} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <MaterialIcons name="hotel" size={focused ? 32 : 28} color={color} />
+              {focused && <View style={styles.activeIndicator} />}
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
         name="other"
         options={{
           title: 'Others',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="more-horiz" size={size} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.iconContainer}>
+              <MaterialIcons name="more-horiz" size={focused ? 32 : 28} color={color} />
+              {focused && <View style={styles.activeIndicator} />}
+            </View>
+          ),
         }}
       />
     </Tabs>
@@ -101,5 +143,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 5,
     fontWeight: 'bold',
+  },
+  iconContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+    width: 45,
+  },
+  activeIndicator: {
+    backgroundColor: '#6B3DC9',
+    width: 24,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 4,
+    position: 'absolute',
+    bottom: -12,
   },
 });

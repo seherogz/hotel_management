@@ -14,7 +14,8 @@ import {
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
   Platform,
-  StatusBar
+  StatusBar,
+  Dimensions
 } from 'react-native';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
@@ -65,6 +66,10 @@ export default function AccountingScreen() {
   const [actionMenuPosition, setActionMenuPosition] = useState({ x: 0, y: 0 });
   const [isEditMode, setEditMode] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
+  
+  // Detect screen width
+  const windowWidth = Dimensions.get('window').width;
+  const isMobile = windowWidth < 500; // Consider devices with width < 500px as mobile
   
   useEffect(() => {
     loadAllData();
@@ -695,7 +700,16 @@ export default function AccountingScreen() {
   const showActionMenu = (item, event) => {
     // Get the position of the touch to position the menu
     const { pageY } = event.nativeEvent;
-    setActionMenuPosition({ y: pageY });
+    const windowHeight = Dimensions.get('window').height;
+    
+    // If click is in the bottom third of the screen, position menu above the touch point
+    const positionAbove = pageY > (windowHeight * 0.7);
+    
+    setActionMenuPosition({ 
+      y: positionAbove ? pageY - 100 : pageY,
+      positionAbove
+    });
+    
     setSelectedItemId(item.id);
     setActionMenuVisible(true);
   };
@@ -995,20 +1009,21 @@ export default function AccountingScreen() {
             filteredIncomes.length > 0 ? (
               <View style={styles.table}>
                 <View style={styles.tableHeader}>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>No.</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Date</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Customer</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Room</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 0.8 }]}>No.</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1.5 }]}>Date</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 2 }]}>Customer</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1 }]}>Room</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1, textAlign: 'right' }, { textAlign: 'right' }]}>Amount</Text>
+                  <View style={{ width: 40 }} />
                 </View>
                 
                 {filteredIncomes.map((income) => (
                   <View key={income.id} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, { flex: 0.8 }]}>{income.incomeNumber}</Text>
-                    <Text style={[styles.tableCell, { flex: 1.5 }]}>{formatDate(income.date)}</Text>
-                    <Text style={[styles.tableCell, { flex: 2 }]}>{income.customerName}</Text>
-                    <Text style={[styles.tableCell, { flex: 1 }]}>{income.roomNumber}</Text>
-                    <Text style={[styles.tableCell, { flex: 1, textAlign: 'right' }]}>₺{income.amount}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 0.8 }]} numberOfLines={1}>{income.incomeNumber}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1.5 }]} numberOfLines={1}>{formatDate(income.date)}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 2 }]} numberOfLines={1}>{income.customerName}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1 }]} numberOfLines={1}>{income.roomNumber}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1, textAlign: 'right' }, { textAlign: 'right' }]}>₺{income.amount}</Text>
                     <TouchableOpacity 
                       style={styles.actionButton}
                       onPress={(event) => showActionMenu(income, event)}
@@ -1023,20 +1038,21 @@ export default function AccountingScreen() {
             filteredExpenses.length > 0 ? (
               <View style={styles.table}>
                 <View style={styles.tableHeader}>
-                  <Text style={[styles.tableHeaderCell, { flex: 0.8 }]}>No.</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Date</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Category</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Description</Text>
-                  <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 0.8 }]}>No.</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1.5 }]}>Date</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1.5 }]}>Category</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 2 }]}>Desc.</Text>
+                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1, textAlign: 'right' }, { textAlign: 'right' }]}>Amount</Text>
+                  <View style={{ width: 40 }} />
                 </View>
                 
                 {filteredExpenses.map((expense) => (
                   <View key={expense.id} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, { flex: 0.8 }]}>{expense.expenseNumber}</Text>
-                    <Text style={[styles.tableCell, { flex: 1.5 }]}>{formatDate(expense.date)}</Text>
-                    <Text style={[styles.tableCell, { flex: 1.5 }]}>{expense.category}</Text>
-                    <Text style={[styles.tableCell, { flex: 2 }]}>{expense.description}</Text>
-                    <Text style={[styles.tableCell, { flex: 1, textAlign: 'right' }]}>₺{expense.amount}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 0.8 }]} numberOfLines={1}>{expense.expenseNumber}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1.5 }]} numberOfLines={1}>{formatDate(expense.date)}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1.5 }]} numberOfLines={1}>{expense.category}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 2 }]} numberOfLines={1}>{expense.description}</Text>
+                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1, textAlign: 'right' }, { textAlign: 'right' }]}>₺{expense.amount}</Text>
                     <TouchableOpacity 
                       style={styles.actionButton}
                       onPress={(event) => showActionMenu(expense, event)}
@@ -1060,7 +1076,14 @@ export default function AccountingScreen() {
       {isActionMenuVisible && (
         <TouchableWithoutFeedback onPress={hideActionMenu}>
           <View style={styles.actionMenuOverlay}>
-            <View style={[styles.actionMenu, { top: actionMenuPosition.y }]}>
+            <View style={[
+              styles.actionMenu, 
+              { 
+                top: actionMenuPosition.y,
+                bottom: actionMenuPosition.positionAbove ? undefined : undefined,
+              },
+              actionMenuPosition.positionAbove && styles.actionMenuAbove
+            ]}>
               <TouchableOpacity 
                 style={styles.actionMenuItem}
                 onPress={() => {
@@ -1257,25 +1280,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#f1f3f5',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#dee2e6',
+    alignItems: 'center',
   },
   tableHeaderCell: {
     fontSize: 13,
     fontWeight: '600',
     color: '#495057',
   },
+  mobileHeaderCell: {
+    flex: 1,
+    paddingHorizontal: 3,
+    fontSize: 12,
+  },
   tableRow: {
     flexDirection: 'row',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
+    alignItems: 'center',
   },
   tableCell: {
     fontSize: 14,
     color: '#333',
+  },
+  mobileCell: {
+    flex: 1,
+    paddingHorizontal: 3,
+    fontSize: 13,
+    overflow: 'hidden',
   },
   noResultsContainer: {
     backgroundColor: '#fff',
@@ -1421,6 +1457,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
+  },
+  actionMenuAbove: {
+    bottom: 'auto',
   },
   actionMenuItem: {
     flexDirection: 'row',
