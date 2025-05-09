@@ -9,11 +9,10 @@ import {
   TouchableOpacity,
   FlatList,
   Modal,
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import Colors from '../../constants/Colors';
 import roomService from '../../services/roomService';
 
@@ -46,8 +45,8 @@ export default function RoomsScreen() {
   const [calendarType, setCalendarType] = useState(''); // 'start' or 'end'
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarViewRange, setCalendarViewRange] = useState({
-    start: new Date(2025, 3, 16), // April 16, 2025
-    end: new Date(2025, 3, 30) // April 30, 2025
+    start: new Date(), // Bugünün tarihi
+    end: new Date(new Date().setDate(new Date().getDate() + 6)) // Bugünden 6 gün sonrası (toplam 7 gün)
   });
   const [reservationModalVisible, setReservationModalVisible] = useState(false);
   const [reservationRoom, setReservationRoom] = useState(null);
@@ -63,6 +62,36 @@ export default function RoomsScreen() {
 
   // All available features for filtering - İngilizce adlar kullan
   const availableFeatures = ['TV', 'WiFi', 'Air Conditioning', 'Hot Tub', 'Balcony', 'Coffee Machine', 'Minibar'];
+
+  // useFocusEffect to fetch rooms data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('Rooms screen focused, fetching today\'s rooms...');
+      // Görünümü her defasında kart görünümüne ayarla
+      setActiveView('card');
+      
+      // Reset filters to today's date
+      const todayDate = getTodayFormatted();
+      setStartDate(todayDate);
+      setEndDate('');
+      setActiveFilters([{ type: 'startDate', value: todayDate }]);
+      setStatusFilter('Tümü');
+      setSelectedFeatures([]);
+      
+      // Fetch rooms with today's date
+      fetchRooms();
+      
+      return () => {
+        // Cleanup if needed when screen loses focus
+        console.log('Rooms screen unfocused');
+      };
+    }, [])
+  );
+
+  // useEffect to set card view as default when component mounts
+  useEffect(() => {
+    setActiveView('card');
+  }, []);
 
   // Fetch rooms data from API on component mount
   useEffect(() => {
@@ -145,7 +174,7 @@ export default function RoomsScreen() {
   // Filter the rooms based on search text, status filter, and other filters
   const filteredRooms = rooms.filter(room => {
     // Filter by search text (room number)
-    if (searchText && !room.id.toLowerCase().includes(searchText.toLowerCase())) {
+    if (searchText && !room.roomNumber?.toLowerCase().includes(searchText.toLowerCase())) {
       return false;
     }
     
@@ -168,13 +197,78 @@ export default function RoomsScreen() {
     // Filter by selected features/amenities
     if (selectedFeatures.length > 0) {
       for (const feature of selectedFeatures) {
-        // Basit özellik kontrolü - Sadece İngilizce adlarla
+        // Oda özellikleri yoksa filtreden geçemez
         if (!room.features || !room.features.length) return false;
         
         // Odanın bu özelliğe sahip olup olmadığını kontrol et
-        const featureExists = room.features.some(roomFeature => 
-          roomFeature.toLowerCase().includes(feature.toLowerCase())
-        );
+        let featureExists = false;
+        const featureLower = feature.toLowerCase().trim();
+
+        // Her bir oda özelliği için karşılaştırma yap
+        for (const roomFeature of room.features) {
+          const roomFeatureLower = roomFeature.toLowerCase().trim();
+          
+          // Doğrudan eşleşme kontrolü
+          if (roomFeatureLower === featureLower) {
+            featureExists = true;
+            break;
+          }
+          
+          // Wi-Fi/WiFi durumunu ele al
+          if ((featureLower === 'wi-fi' || featureLower === 'wifi') && 
+              (roomFeatureLower.includes('wifi') || roomFeatureLower.includes('wi-fi'))) {
+            featureExists = true;
+            break;
+          }
+          
+          // Jakuzi/Jacuzzi/Hot Tub durumunu ele al
+          if ((featureLower === 'jakuzi' || featureLower === 'hot tub' || featureLower === 'jacuzzi') && 
+              (roomFeatureLower.includes('jacuzzi') || roomFeatureLower.includes('hot tub') || roomFeatureLower.includes('jakuzi'))) {
+            featureExists = true;
+            break;
+          }
+          
+          // Mini Bar/Minibar durumunu ele al
+          if ((featureLower === 'mini bar' || featureLower === 'minibar') && 
+              (roomFeatureLower.includes('minibar') || roomFeatureLower.includes('mini bar') || roomFeatureLower.includes('mini-bar'))) {
+            featureExists = true;
+            break;
+          }
+          
+          // Klima/Air Conditioning durumunu ele al
+          if ((featureLower === 'klima' || featureLower === 'air conditioning') && 
+              (roomFeatureLower.includes('air conditioning') || roomFeatureLower.includes('klima') || roomFeatureLower.includes('ac'))) {
+            featureExists = true;
+            break;
+          }
+          
+          // Balkon/Balcony durumunu ele al
+          if ((featureLower === 'balkon' || featureLower === 'balcony') && 
+              (roomFeatureLower.includes('balcony') || roomFeatureLower.includes('balkon'))) {
+            featureExists = true;
+            break;
+          }
+          
+          // Kahve Makinesi durumunu ele al
+          if ((featureLower === 'kahve mak.' || featureLower === 'coffee machine') && 
+              (roomFeatureLower.includes('coffee') || roomFeatureLower.includes('kahve'))) {
+            featureExists = true;
+            break;
+          }
+          
+          // Deniz Manzarası durumunu ele al
+          if ((featureLower === 'deniz manzarası' || featureLower === 'sea view') && 
+              (roomFeatureLower.includes('sea view') || roomFeatureLower.includes('deniz manzarası'))) {
+            featureExists = true;
+            break;
+          }
+          
+          // Genel kısmi eşleşme kontrolü
+          if (roomFeatureLower.includes(featureLower) || featureLower.includes(roomFeatureLower)) {
+            featureExists = true;
+            break;
+          }
+        }
         
         if (!featureExists) {
           return false;
@@ -483,15 +577,55 @@ export default function RoomsScreen() {
 
   // Ekrandaki özellik adını veri tabanındaki ada çeviren yardımcı fonksiyon
   const getOriginalFeatureName = (displayName) => {
-    switch (displayName.toLowerCase()) {
+    if (!displayName) return '';
+    
+    // Küçük harfe çevir ve boşlukları temizle
+    const normalizedName = displayName.toLowerCase().trim();
+    
+    switch (normalizedName) {
       case 'tv': return 'TV';
-      case 'wi-fi': return 'WiFi';
-      case 'klima': return 'Air Conditioning';
-      case 'jakuzi': return 'Hot Tub';
-      case 'balkon': return 'Balcony';
-      case 'kahve mak.': return 'Coffee Machine';
-      case 'mini bar': return 'Minibar';
-      case 'deniz manzarası': return 'Sea View';
+      
+      // Wi-Fi varyasyonları
+      case 'wi-fi': 
+      case 'wifi': 
+      case 'wi fi': 
+        return 'WiFi';
+      
+      // Klima varyasyonları
+      case 'klima': 
+      case 'air conditioning': 
+      case 'ac': 
+        return 'Air Conditioning';
+      
+      // Jakuzi varyasyonları
+      case 'jakuzi': 
+      case 'hot tub': 
+      case 'jacuzzi': 
+        return 'Hot Tub';
+      
+      // Balkon varyasyonları
+      case 'balkon': 
+      case 'balcony': 
+        return 'Balcony';
+      
+      // Kahve makinesi varyasyonları
+      case 'kahve mak.': 
+      case 'kahve makinesi': 
+      case 'coffee machine': 
+      case 'coffee maker': 
+        return 'Coffee Machine';
+      
+      // Mini bar varyasyonları
+      case 'mini bar': 
+      case 'minibar': 
+      case 'mini-bar': 
+        return 'Minibar';
+      
+      // Deniz manzarası varyasyonları
+      case 'deniz manzarası': 
+      case 'sea view': 
+        return 'Sea View';
+        
       default: return displayName;
     }
   };
@@ -617,11 +751,7 @@ export default function RoomsScreen() {
       if (startDate) {
         const startDateObj = parseDate(startDate);
         if (date < startDateObj) {
-          Alert.alert(
-            "Geçersiz Tarih", 
-            "Bitiş tarihi başlangıç tarihinden sonra olmalıdır.",
-            [{ text: "Tamam" }]
-          );
+          alert("Geçersiz Tarih Aralığı - Bitiş tarihi başlangıç tarihinden sonra olmalıdır.");
           return;
         }
       }
@@ -645,11 +775,7 @@ export default function RoomsScreen() {
       if (reservationDates.start) {
         const startDateObj = parseDate(reservationDates.start);
         if (date <= startDateObj) {
-          Alert.alert(
-            "Geçersiz Tarih", 
-            "Bitiş tarihi başlangıç tarihinden sonra olmalıdır.",
-            [{ text: "Tamam" }]
-          );
+          alert("Geçersiz Tarih - Bitiş tarihi başlangıç tarihinden sonra olmalıdır.");
           return;
         }
       }
@@ -834,6 +960,8 @@ export default function RoomsScreen() {
   const handleReservation = (room, selectedDate = null) => {
     // Log room object to help debug
     console.log("Room for reservation:", JSON.stringify(room, null, 2));
+    console.log("DEBUG - handleReservation - Room ID:", room.id, "Room Number:", room.roomNumber);
+    
     // If we have a selected date from calendar view, use it
     if (selectedDate) {
       const formatDateString = (date) => {
@@ -851,7 +979,7 @@ export default function RoomsScreen() {
       // Set up the reservation with pre-filled dates
       setReservationRoom({
         ...room,
-        id: room.id || room.roomId || 0 // Oda ID'si mutlaka olsun
+        id: room.id // Doğrudan room.id kullan, fallback yok
       });
       setReservationDates({ start: startDateStr, end: endDateStr });
       setCustomerIdNumber('');
@@ -862,14 +990,14 @@ export default function RoomsScreen() {
       if (!startDate || !endDate) {
         setReservationRoom({
           ...room,
-          id: room.id || room.roomId || 0
+          id: room.id // Doğrudan room.id kullan, fallback yok
         });
         setReservationDates({ start: '', end: '' });
         setShowReservationDateModal(true);
       } else {
         setReservationRoom({
           ...room,
-          id: room.id || room.roomId || 0
+          id: room.id // Doğrudan room.id kullan, fallback yok
         });
         setReservationDates({ start: startDate, end: endDate });
         setCustomerIdNumber('');
@@ -902,12 +1030,12 @@ export default function RoomsScreen() {
 
   const confirmReservation = async () => {
     if (!customerIdNumber.trim()) {
-      Alert.alert('Hata', 'Lütfen müşteri TC Kimlik No girin.');
+      alert('Hata - Lütfen müşteri TC Kimlik No girin.');
       return;
     }
     
     if (!reservationDates.start || !reservationDates.end) {
-      Alert.alert('Hata', 'Lütfen giriş ve çıkış tarihlerini seçin.');
+      alert('Hata - Lütfen giriş ve çıkış tarihlerini seçin.');
       return;
     }
     
@@ -916,11 +1044,7 @@ export default function RoomsScreen() {
     const endDateObj = parseDate(reservationDates.end);
     
     if (endDateObj <= startDateObj) {
-      Alert.alert(
-        "Geçersiz Tarih Aralığı", 
-        "Bitiş tarihi başlangıç tarihinden sonra olmalıdır.",
-        [{ text: "Tamam" }]
-      );
+      alert("Geçersiz Tarih Aralığı - Bitiş tarihi başlangıç tarihinden sonra olmalıdır.");
       return;
     }
     
@@ -930,11 +1054,7 @@ export default function RoomsScreen() {
       const guestNum = parseInt(numberOfGuests) || 1;
       
       if (guestNum > roomCapacity) {
-        Alert.alert(
-          "Kapasite Aşımı", 
-          `Bu oda maksimum ${roomCapacity} kişi kapasitelidir.`,
-          [{ text: "Tamam" }]
-        );
+        alert(`Kapasite Aşımı - Bu oda maksimum ${roomCapacity} kişi kapasitelidir.`);
         setNumberOfGuests(roomCapacity.toString());
         return;
       }
@@ -963,12 +1083,16 @@ export default function RoomsScreen() {
       
       // Create reservation payload
       const reservationData = {
-        roomId: reservationRoom.id,
+        roomId: reservationRoom.roomId || reservationRoom.id,
         customerIdNumber: customerIdNumber.trim(),
         checkInDate: formatDateForApi(reservationDates.start),
         checkOutDate: formatDateForApi(reservationDates.end),
         numberOfGuests: parseInt(numberOfGuests) || 1
       };
+      
+      // Debug - API'ye gönderilen oda ID'si
+      console.log("DEBUG - confirmReservation - Room ID:", reservationRoom.roomId || reservationRoom.id);
+      console.log("DEBUG - confirmReservation - Full room object:", JSON.stringify(reservationRoom, null, 2));
       
       console.log("Sending reservation data:", reservationData);
       
@@ -977,21 +1101,29 @@ export default function RoomsScreen() {
         const response = await roomService.reserveRoom(reservationData);
         console.log("Reservation response:", response);
         
+        // Rezervasyon başarılı olduktan hemen sonra güncel verileri yükle
+        if (activeView === 'calendar') {
+          console.log('Rezervasyon sonrası takvim verilerini hemen yeniliyorum...');
+          await fetchCalendarViewData(); // Takvim verilerini hemen yenile
+        } else {
+          console.log('Rezervasyon sonrası kart görünümü verilerini hemen yeniliyorum...');
+          await fetchRooms(); // Kart görünümü verilerini hemen yenile
+        }
+        
         // Close modal
         setReservationModalVisible(false);
         
-        // Show confirmation
-        Alert.alert(
-          'Başarılı', 
-          `Oda ${reservationRoom.roomNumber || reservationRoom.id} başarıyla rezerve edildi.`,
-          [{ 
-            text: 'Tamam', 
-            onPress: () => refreshRooms() 
-          }]
-        );
+        // Show confirmation and refresh data
+        alert(`Başarılı - Oda ${reservationRoom.roomNumber || reservationRoom.id} başarıyla rezerve edildi.`);
         
-        // Automatically refresh rooms
-        refreshRooms();
+        // Aktif görünüme göre tekrar veri yenileme
+        if (activeView === 'calendar') {
+          console.log('Alert sonrası takvim verilerini tekrar yeniliyorum...');
+          fetchCalendarViewData();
+        } else {
+          console.log('Alert sonrası kart görünümü verilerini tekrar yeniliyorum...');
+          refreshRooms();
+        }
       } catch (error) {
         console.error('API error:', error);
         let errorMessage = 'Rezervasyon yapılırken bir hata oluştu.';
@@ -1002,11 +1134,11 @@ export default function RoomsScreen() {
           errorMessage = error.message;
         }
         
-        Alert.alert('Rezervasyon Hatası', errorMessage);
+        alert(`Rezervasyon Hatası - ${errorMessage}`);
       }
     } catch (error) {
       console.error('Reservation error:', error);
-      Alert.alert('Hata', 'Rezervasyon yapılırken bir hata oluştu. Lütfen tekrar deneyin.');
+      alert('Hata - Rezervasyon yapılırken bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);
     }
@@ -1031,7 +1163,7 @@ export default function RoomsScreen() {
         // If over capacity, set to max capacity
         setNumberOfGuests(roomCapacity.toString());
         // Optionally show alert about the limit
-        Alert.alert('Uyarı', `Bu oda maksimum ${roomCapacity} kişi kapasitelidir.`);
+        alert(`Uyarı - Bu oda maksimum ${roomCapacity} kişi kapasitelidir.`);
       } else if (guestNum === 0) {
         // Minimum 1 guest
         setNumberOfGuests('1');
@@ -1144,7 +1276,7 @@ export default function RoomsScreen() {
                       if (currentNum < roomCapacity) {
                         setNumberOfGuests((currentNum + 1).toString());
                       } else {
-                        Alert.alert('Uyarı', `Bu oda maksimum ${roomCapacity} kişi kapasitelidir.`);
+                        alert(`Uyarı - Bu oda maksimum ${roomCapacity} kişi kapasitelidir.`);
                       }
                     }}
                     disabled={parseInt(numberOfGuests) >= roomCapacity}
@@ -1265,7 +1397,7 @@ export default function RoomsScreen() {
 
   const handleReservationDateSelect = () => {
     if (!reservationDates.start || !reservationDates.end) {
-      Alert.alert('Uyarı', 'Lütfen hem giriş hem de çıkış tarihini seçin.');
+      alert('Uyarı - Lütfen hem giriş hem de çıkış tarihini seçin.');
       return;
     }
     
@@ -1274,11 +1406,7 @@ export default function RoomsScreen() {
     const endDateObj = parseDate(reservationDates.end);
     
     if (endDateObj <= startDateObj) {
-      Alert.alert(
-        "Geçersiz Tarih Aralığı", 
-        "Bitiş tarihi başlangıç tarihinden sonra olmalıdır.",
-        [{ text: "Tamam" }]
-      );
+      alert("Geçersiz Tarih Aralığı - Bitiş tarihi başlangıç tarihinden sonra olmalıdır.");
       return;
     }
     
@@ -1639,18 +1767,31 @@ export default function RoomsScreen() {
         const response = await roomService.cancelReservation(reservationId);
         console.log("Cancellation response:", response);
 
+        // Takvim görünümündeyse, iptal başarılı olduktan hemen sonra takvim verilerini yenile
+        if (activeView === 'calendar') {
+          console.log('Rezervasyon iptali sonrası takvim verilerini hemen yeniliyorum...');
+          await fetchCalendarViewData(); // Takvim verilerini hemen yenile
+        } else {
+          console.log('Rezervasyon iptali sonrası kart görünümü verilerini hemen yeniliyorum...');
+          await fetchRooms(); // Kart görünümü verilerini hemen yenile
+        }
+
         setModalVisible(false);
 
-        Alert.alert(
-          'Başarılı',
-          'Rezervasyon başarıyla iptal edildi.',
-          [{ text: 'Tamam' }]
-        );
-
-        refreshRooms();
+        // Show success message and refresh data again
+        alert('Başarılı - Rezervasyon başarıyla iptal edildi.');
+        
+        // Tekrar veri yenileme
+        if (activeView === 'calendar') {
+          console.log('İptal alert sonrası takvim verilerini tekrar yeniliyorum...');
+          fetchCalendarViewData();
+        } else {
+          console.log('İptal alert sonrası kart görünümü verilerini tekrar yeniliyorum...');
+          refreshRooms();
+        }
       } else {
         console.error('Reservation ID not found');
-        Alert.alert('Hata', 'Rezervasyon bilgisi bulunamadı.');
+        alert('Hata - Rezervasyon bilgisi bulunamadı.');
       }
     } catch (error) {
       console.error('Error cancelling reservation:', error);
@@ -1659,14 +1800,15 @@ export default function RoomsScreen() {
       } else if (error.message) {
         console.error('Error Message:', error.message);
       }
-      Alert.alert(
-        'İptal Hatası',
-        'Rezervasyon iptal edilirken bir hata oluştu. Lütfen tekrar deneyin.',
-        [{
-          text: 'Tamam',
-          onPress: () => refreshRooms()
-        }]
-      );
+      
+      alert('İptal Hatası - Rezervasyon iptal edilirken bir hata oluştu. Lütfen tekrar deneyin.');
+      
+      // Aktif görünüme göre yine de veri yenileme yapalım
+      if (activeView === 'calendar') {
+        fetchCalendarViewData();
+      } else {
+        refreshRooms();
+      }
     } finally {
       setIsLoading(false);
     }
@@ -1674,10 +1816,9 @@ export default function RoomsScreen() {
 
   // Function to get calendar view data from API
   const fetchCalendarViewData = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-      
       // Format dates for API (YYYY-MM-DD)
       const formatDateForApi = (date) => {
         const year = date.getFullYear();
@@ -1692,11 +1833,13 @@ export default function RoomsScreen() {
         EndDate: formatDateForApi(calendarViewRange.end)
       };
       
-      console.log("Requesting calendar data with params:", params);
+      console.log("DEBUG - Requesting calendar data with params:", params);
       
       // Call API
       const response = await roomService.getCalendarViewData(params);
-      console.log("Calendar API response:", response);
+      console.log("DEBUG - Calendar API response type:", typeof response);
+      console.log("DEBUG - Calendar API response is array:", Array.isArray(response));
+      console.log("DEBUG - Calendar API response length:", response ? (Array.isArray(response) ? response.length : 'not array') : 'null response');
       
       // Get the actual data array based on API response format
       let calendarData;
@@ -1708,6 +1851,16 @@ export default function RoomsScreen() {
         console.error("Unexpected API response format:", response);
         setError("API'den beklenmeyen veri formatı alındı. Lütfen tekrar deneyin.");
         return;
+      }
+      
+      console.log(`DEBUG - Calendar data processed: ${calendarData.length} rooms`);
+      if (calendarData.length > 0) {
+        console.log('DEBUG - First room sample:', JSON.stringify({
+          roomId: calendarData[0].roomId, 
+          id: calendarData[0].id,
+          roomNumber: calendarData[0].roomNumber,
+          dailyStatuses: calendarData[0].dailyStatuses?.length || 'no daily statuses'
+        }, null, 2));
       }
       
       // Process and update the local state with returned data
@@ -1750,7 +1903,7 @@ export default function RoomsScreen() {
         }
       });
       
-      console.log("Processed rooms for calendar view:", processedRooms.map(r => r.roomNumber));
+      console.log("DEBUG - Processed rooms for calendar view:", processedRooms.map(r => ({roomNumber: r.roomNumber, id: r.id, roomId: r.roomId})));
       setRooms(processedRooms);
     } catch (error) {
       console.error('Error fetching calendar data:', error);
@@ -1842,8 +1995,8 @@ export default function RoomsScreen() {
     const newStart = new Date(calendarViewRange.start);
     const newEnd = new Date(calendarViewRange.end);
     
-    newStart.setDate(newStart.getDate() + (increment * 14));
-    newEnd.setDate(newEnd.getDate() + (increment * 14));
+    newStart.setDate(newStart.getDate() + (increment * 7)); // 14 yerine 7 gün değişikliği
+    newEnd.setDate(newEnd.getDate() + (increment * 7)); // 14 yerine 7 gün değişikliği
     
     setCalendarViewRange({
       start: newStart,
@@ -1866,7 +2019,23 @@ export default function RoomsScreen() {
   // Modify the renderCalendarView function to display daily statuses
   const renderCalendarView = () => {
     const dates = generateCalendarDates();
-    const filteredRoomsByNumber = [...filteredRooms].sort((a, b) => parseInt(a.id) - parseInt(b.id));
+    
+    // Debug room data
+    console.log("Calendar rooms data:", filteredRooms.map(r => ({
+      roomId: r.roomId,
+      id: r.id,
+      roomNumber: r.roomNumber
+    })));
+    
+    // Önce roomId, sonra id, sonra roomNumber'a göre sırala
+    const filteredRoomsByNumber = [...filteredRooms].sort((a, b) => {
+      // Önce roomId'ye göre sırala
+      if (a.roomId && b.roomId) return parseInt(a.roomId) - parseInt(b.roomId);
+      // roomId yoksa id'ye göre sırala
+      if (a.id && b.id) return parseInt(a.id) - parseInt(b.id);
+      // İkisi de yoksa roomNumber'a göre sırala
+      return parseInt(a.roomNumber || 0) - parseInt(b.roomNumber || 0);
+    });
     
     if (isLoading) {
       return (
@@ -1929,8 +2098,8 @@ export default function RoomsScreen() {
             
             {/* Room Rows */}
             <ScrollView style={{ maxHeight: 550 }}>
-              {filteredRoomsByNumber.map((room) => (
-                <View key={room.id} style={styles.roomRow}>
+              {filteredRoomsByNumber.map((room, roomIndex) => (
+                <View key={`room-${room.roomId || room.id || room.roomNumber}-${roomIndex}`} style={styles.roomRow}>
                   <View style={styles.roomNumberCell}>
                     <Text style={styles.roomNumberText}>{room.roomNumber}</Text>
                     <Text style={styles.roomTypeIndicator}>{room.roomType}</Text>
@@ -1958,7 +2127,7 @@ export default function RoomsScreen() {
                     
                     return (
                       <TouchableOpacity 
-                        key={`cal-cell-${room.id}-${dateIndex}`} 
+                        key={`cell-${room.roomNumber || roomIndex}-${dateIndex}`} 
                         style={[
                           styles.roomStatusCell,
                           { backgroundColor: getStatusColor(status) }
@@ -1973,10 +2142,19 @@ export default function RoomsScreen() {
                             // Create a copy of the room with reservation info for the popup
                             const roomForReservation = {
                               ...room,
+                              id: room.roomId || room.id || parseInt(room.roomNumber) || 0, // Önce roomId değerini kullan
                               status: 'available',
                               selectedDate: selectedDateStr,
                               formattedDate: formattedDate
                             };
+                            
+                            // Debug - takvim görünümünde tıklanan oda
+                            console.log("Calendar view clicked room:", JSON.stringify({
+                              roomId: room.roomId,
+                              originalId: room.id,
+                              newId: roomForReservation.id,
+                              roomNumber: room.roomNumber
+                            }, null, 2));
                             
                             // Show room details with reservation option
                             showRoomDetailsForReservation(roomForReservation, date);
@@ -2158,16 +2336,19 @@ export default function RoomsScreen() {
   // Function to initialize to today's date for calendar view
   const goToCurrentDate = () => {
     const today = new Date();
-    const twoWeeksLater = new Date();
-    twoWeeksLater.setDate(today.getDate() + 14);
+    const oneWeekLater = new Date();
+    oneWeekLater.setDate(today.getDate() + 6); // 7 gün görüntüleme için
     
     setCalendarViewRange({
       start: today,
-      end: twoWeeksLater
+      end: oneWeekLater
     });
     
+    // Fetch calendar data for the new date range
+    fetchCalendarViewData();
+    
     // Inform the user
-    Alert.alert('Tarih Güncellemesi', 'Takvim bugünün tarihine getirildi.');
+    alert('Tarih Güncellemesi - Takvim bugünün tarihine getirildi.');
   };
 
   return (
@@ -2188,7 +2369,25 @@ export default function RoomsScreen() {
               styles.toggleButton, 
               activeView === 'card' && styles.activeToggle
             ]}
-            onPress={() => setActiveView('card')}
+            onPress={() => {
+              // Eğer zaten kart görünümündeyse bir şey yapma
+              if (activeView === 'card') return;
+              
+              // Görünümü değiştir
+              setActiveView('card');
+              
+              // Kart görünümüne geçerken bugünün tarihini ayarla ve verileri yenile
+              const todayDate = getTodayFormatted();
+              setStartDate(todayDate);
+              setEndDate('');
+              setActiveFilters([{ type: 'startDate', value: todayDate }]);
+              setStatusFilter('Tümü');
+              setSelectedFeatures([]);
+              
+              // Bugünün verilerini getir
+              console.log('Switching to card view, fetching today\'s rooms...');
+              fetchRooms();
+            }}
           >
             <MaterialIcons 
               name="grid-view" 
@@ -2210,7 +2409,26 @@ export default function RoomsScreen() {
               styles.toggleButton, 
               activeView === 'calendar' && styles.activeToggle
             ]}
-            onPress={() => setActiveView('calendar')}
+            onPress={() => {
+              // Eğer zaten takvim görünümündeyse bir şey yapma
+              if (activeView === 'calendar') return;
+              
+              // Görünümü değiştir
+              setActiveView('calendar');
+              
+              // Takvim görünümüne geçerken bugünün tarihini otomatik ayarla
+              const today = new Date();
+              const oneWeekLater = new Date();
+              oneWeekLater.setDate(today.getDate() + 6);
+              
+              setCalendarViewRange({
+                start: today,
+                end: oneWeekLater
+              });
+              
+              // Takvim verilerini getir
+              fetchCalendarViewData();
+            }}
           >
             <MaterialIcons 
               name="calendar-today" 
@@ -2229,7 +2447,16 @@ export default function RoomsScreen() {
           
           <TouchableOpacity 
             style={styles.refreshButton}
-            onPress={refreshRooms}
+            onPress={() => {
+              // Görünüm tipine göre farklı yenileme fonksiyonları çağır
+              if (activeView === 'calendar') {
+                console.log('Refreshing calendar view...');
+                fetchCalendarViewData(); // Takvim görünümü için CalendarView API'sini çağır
+              } else {
+                console.log('Refreshing card view...');
+                refreshRooms(); // Kart görünümü için normal oda listeleme API'sini çağır
+              }
+            }}
             disabled={isLoading}
           >
             <MaterialIcons name="refresh" size={20} color="#6B3DC9" />
@@ -2313,63 +2540,6 @@ export default function RoomsScreen() {
               onPress={refreshRooms}
             >
               <Text style={styles.retryButtonText}>TEKRAR DENE</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        
-        {/* View Toggle */}
-        {activeView === 'card' && (
-          <View style={styles.viewToggle}>
-            <TouchableOpacity 
-              style={[
-                styles.toggleButton, 
-                activeView === 'card' && styles.activeToggle
-              ]}
-              onPress={() => setActiveView('card')}
-            >
-              <MaterialIcons 
-                name="grid-view" 
-                size={20} 
-                color={activeView === 'card' ? '#6B3DC9' : '#666'} 
-              />
-              <Text 
-                style={[
-                  styles.toggleText, 
-                  activeView === 'card' && styles.activeToggleText
-                ]}
-              >
-                KART GÖRÜNÜMÜ
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[
-                styles.toggleButton, 
-                activeView === 'calendar' && styles.activeToggle
-              ]}
-              onPress={() => setActiveView('calendar')}
-            >
-              <MaterialIcons 
-                name="calendar-today" 
-                size={20} 
-                color={activeView === 'calendar' ? '#6B3DC9' : '#666'} 
-              />
-              <Text 
-                style={[
-                  styles.toggleText, 
-                  activeView === 'calendar' && styles.activeToggleText
-                ]}
-              >
-                TAKVİM GÖRÜNÜMÜ
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.refreshButton}
-              onPress={refreshRooms}
-            >
-              <MaterialIcons name="refresh" size={20} color="#6B3DC9" />
-              <Text style={styles.refreshText}>YENİLE</Text>
             </TouchableOpacity>
           </View>
         )}

@@ -282,11 +282,12 @@ const roomService = {
     }
 
     // Get the definitive numeric ID for the room (this is what the API expects)
-    const roomId = apiRoom.id || 0;
+    const roomId = apiRoom.roomId || apiRoom.id || 0;
     
     // Build formatted room object
     const formattedRoom = {
       id: roomId,  // Use the numeric ID directly
+      roomId: roomId, // Explicitly set roomId
       roomNumber: apiRoom.roomNumber ? apiRoom.roomNumber.toString() : roomId.toString(),
       status,
       capacity: `${apiRoom.capacity} kişi`,
