@@ -7,6 +7,7 @@ import { format, isValid } from 'date-fns';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useFocusEffect } from '@react-navigation/native';
 
 function formatDate(date) {
   if (!date) return '';
@@ -73,6 +74,20 @@ export default function CheckInScreen() {
     fetchCheckIns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, page]);
+
+  // Sayfa her odaklandığında o günün verilerini çek
+  useFocusEffect(
+    React.useCallback(() => {
+      const today = getToday();
+      setDate(today);
+      setPage(1);
+      fetchCheckIns({ date: today, page: 1 });
+      
+      return () => {
+        // Cleanup fonksiyonu (gerekirse)
+      };
+    }, [])
+  );
 
   // Frontend filtreleme (arama kutusu)
   const filteredCheckIns = useMemo(() => {
@@ -382,9 +397,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 10,
     gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   input: {
-    flex: 1,
+    flex: Platform.OS === 'web' ? 1 : 0.65,
     backgroundColor: 'white',
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -400,6 +417,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginRight: 8,
+    minWidth: 110,
+    alignItems: 'center',
   },
   dateBtnText: {
     color: '#6B3DC9',
