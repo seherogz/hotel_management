@@ -674,6 +674,116 @@ export const reservationService = {
 };
 
 /**
+ * Staff service to interact with the backend
+ */
+export const staffService = {
+  getAllStaff: async (pageNumber = 1, pageSize = 50, filters = {}) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required');
+
+      let url = `${API_BASE_URL}/v1/Staff?PageNumber=${pageNumber}&PageSize=${pageSize}`;
+      // Filtreleri query string olarak ekle
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value && value !== 'all') url += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+      });
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch staff');
+      }
+
+      return data; // API'nin döndürdüğü tüm yanıt (data, totalCount, vs.)
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+      throw error;
+    }
+  },
+  createStaff: async (staffData) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required');
+
+      const response = await fetch(`${API_BASE_URL}/v1/Staff`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(staffData),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create staff');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error creating staff:', error);
+      throw error;
+    }
+  },
+  updateStaff: async (id, staffData) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required');
+
+      const response = await fetch(`${API_BASE_URL}/v1/Staff/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(staffData),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update staff');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error updating staff:', error);
+      throw error;
+    }
+  },
+  deleteStaff: async (id) => {
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Authentication required');
+
+      const response = await fetch(`${API_BASE_URL}/v1/Staff/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+
+      const data = await response.json();
+      throw new Error(data.message || 'Failed to delete staff');
+    } catch (error) {
+      console.error('Error deleting staff:', error);
+      throw error;
+    }
+  },
+};
+
+/**
  * Helper function to get the auth token from AsyncStorage
  */
 export const getAuthToken = async () => {
