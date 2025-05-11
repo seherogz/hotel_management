@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, ActivityIndicator, FlatList, ScrollView, Modal, Switch, Platform } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, ActivityIndicator, FlatList, ScrollView, Modal, Switch, Platform, Alert, RefreshControl, StatusBar } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { staffService } from '../services/api';
+import { useRouter, Stack } from 'expo-router';
+import { staffService, shiftService } from '../services/api';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 
 const DEPARTMENTS = [
@@ -25,7 +25,6 @@ const TABS = [
   { key: 'accounting', label: 'Muhasebe', icon: 'attach-money', route: '/accounting' },
   { key: 'profile', label: 'Profil', icon: 'person', route: '/profile' },
 ];
-
 const DEPARTMENTS_MODAL = [
   { key: 'front_office', label: 'Front Office', icon: 'business-center' },
   { key: 'housekeeping', label: 'Housekeeping', icon: 'cleaning-services' },
@@ -45,10 +44,11 @@ export default function ManageStaffScreen() {
   const [status, setStatus] = useState('all');
   const [department, setDepartment] = useState('all');
   const [activeTab, setActiveTab] = useState('all');
-  const [activeTabBar, setActiveTabBar] = useState('staff');
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [componentKey, setComponentKey] = useState(Date.now().toString());
 
   useEffect(() => {
     fetchStaff();
@@ -64,27 +64,42 @@ export default function ManageStaffScreen() {
       if (search) filters.search = search;
       const response = await staffService.getAllStaff(1, 50, filters);
       
-      // API'den dönen verinin tamamını görelim
       console.log('API Staff Response:', response);
       
-      // İlk personel objesini detaylı görelim (varsa)
       if (response.data && response.data.length > 0) {
-        console.log('İlk personel detayı:', JSON.stringify(response.data[0], null, 2));
-        console.log('Maaş alanları kontrol:', {
-          salary: response.data[0].salary,
-          Salary: response.data[0].Salary,
-          maaş: response.data[0].maaş,
-          pay: response.data[0].pay,
-          wage: response.data[0].wage
-        });
+        console.log('First staff details:', JSON.stringify(response.data[0], null, 2));
       }
       
       setStaff(response.data || []);
     } catch (err) {
       console.error('Staff fetch error:', err);
-      setError('Veriler alınamadı.');
+      setError('Veriler alınamadı: ' + (err.message || ''));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    setLoading(false);
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchStaff();
+  };
+
+  const handleStaffCreated = () => {
+    console.log('Staff created, refreshing list...');
+    fetchStaff();
+  };
+
+  const handleStaffUpdated = () => {
+    console.log('Staff updated, refreshing list...');
+    fetchStaff();
+  };
+
+  const handleStaffDeleted = () => {
+    console.log('Staff deleted, refreshing list...');
+    setDetailsModalVisible(false);
+    setSelectedStaff(null);
+    fetchStaff();
   };
 
   const filteredStaff = staff.filter((person) => {
@@ -127,94 +142,106 @@ export default function ManageStaffScreen() {
     );
   };
 
-  const handleTabPress = (tab) => {
-    setActiveTabBar(tab.key);
-    if (tab.route !== '/manage-staff') router.push(tab.route);
+  const forceUpdate = useCallback(() => {
+    setComponentKey(Date.now().toString());
+  }, []);
+
+  // Geri navigasyon fonksiyonu
+  const handleGoBack = () => {
+    try {
+      // Geri tuşuna basıldığında doğrudan other tabına yönlendir
+      router.push('/(tabs)/other');
+    } catch (error) {
+      console.error("Navigation error:", error);
+      // Hata olursa yine de other tabına gitmeye çalış
+      router.replace('/(tabs)');
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Personel Yönetimi</Text>
-        </View>
-        <View style={{ width: 24 }} /> {/* Sağda boşluk bırakmak için */}
-      </View>
-      <View style={styles.filters}>
-        <View style={styles.searchRow}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Personel ara..."
-            value={search}
-            onChangeText={setSearch}
-          />
-          <TouchableOpacity style={styles.newStaffButtonModern} onPress={() => setModalVisible(true)}>
-            <MaterialIcons name="person-add" size={22} color="#fff" />
-            <Text style={styles.newStaffButtonText}>New Staff</Text>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView style={styles.container}>
+        <StatusBar backgroundColor="#3C3169" barStyle="light-content" />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+            <MaterialIcons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Personel Yönetimi</Text>
+          </View>
+          <View style={{ width: 24 }} />
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs}>
-          {DEPARTMENTS.map(tab => (
-            <TouchableOpacity
-              key={tab.key}
-              style={[styles.tab, activeTab === tab.key && styles.activeTab]}
-              onPress={() => setActiveTab(tab.key)}
-            >
-              <Text style={activeTab === tab.key ? styles.activeTabText : styles.tabText}>{tab.label}</Text>
+        <View style={styles.filters}>
+          <View style={styles.searchRow}>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Personel ara..."
+                value={search}
+                onChangeText={setSearch}
+              />
+            </View>
+            <TouchableOpacity style={styles.newStaffButton} onPress={() => setModalVisible(true)}>
+              <MaterialIcons name="person-add" size={20} color="#fff" style={{ marginRight: 5 }} />
+              <Text style={styles.newStaffButtonText}>New Staff</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusFilters}>
-          {STATUS.map(s => (
-            <TouchableOpacity
-              key={s.key}
-              style={[styles.statusTab, status === s.key && styles.activeStatusTab]}
-              onPress={() => setStatus(s.key)}
-            >
-              <Text style={status === s.key ? styles.activeStatusText : styles.statusText}>{s.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-      <View style={styles.content}>
-        {loading ? (
-          <ActivityIndicator size="large" color="#3C3169" />
-        ) : error ? (
-          <Text style={{ color: 'red' }}>{error}</Text>
-        ) : (
-          <FlatList
-            data={filteredStaff}
-            keyExtractor={item => item.id.toString()}
-            renderItem={renderStaffCard}
-            ListEmptyComponent={<Text style={{ textAlign: 'center', color: '#666', marginTop: 40 }}>Personel bulunamadı.</Text>}
-            contentContainerStyle={{ paddingBottom: 20 }}
-          />
-        )}
-      </View>
-      <View style={styles.tabBar}>
-        {TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            style={styles.tabBarItem}
-            onPress={() => handleTabPress(tab)}
-          >
-            <MaterialIcons name={tab.icon} size={28} color={activeTabBar === tab.key ? '#3C3169' : '#aaa'} />
-            <Text style={[styles.tabBarLabel, activeTabBar === tab.key && { color: '#3C3169', fontWeight: 'bold' }]}>{tab.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <CreateStaffModal visible={modalVisible} onClose={() => setModalVisible(false)} onCreated={fetchStaff} />
-      <StaffDetailsModal
-        visible={detailsModalVisible}
-        staff={selectedStaff}
-        onClose={() => setDetailsModalVisible(false)}
-        onUpdated={fetchStaff}
-        onDeleted={fetchStaff}
-      />
-    </SafeAreaView>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs}>
+            {DEPARTMENTS.map(tab => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, activeTab === tab.key && styles.activeTab]}
+                onPress={() => setActiveTab(tab.key)}
+              >
+                <Text style={activeTab === tab.key ? styles.activeTabText : styles.tabText}>{tab.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusFilters}>
+            {STATUS.map(s => (
+              <TouchableOpacity
+                key={s.key}
+                style={[styles.statusTab, status === s.key && styles.activeStatusTab]}
+                onPress={() => setStatus(s.key)}
+              >
+                <Text style={status === s.key ? styles.activeStatusText : styles.statusText}>{s.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+        <View style={styles.content}>
+          {loading ? (
+            <ActivityIndicator size="large" color="#3C3169" />
+          ) : error ? (
+            <Text style={{ color: 'red' }}>{error}</Text>
+          ) : (
+            <FlatList
+              data={filteredStaff}
+              keyExtractor={item => item.id.toString()}
+              renderItem={renderStaffCard}
+              ListEmptyComponent={<Text style={{ textAlign: 'center', color: '#666', marginTop: 40 }}>Personel bulunamadı.</Text>}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  colors={['#3C3169']}
+                />
+              }
+            />
+          )}
+        </View>
+        <CreateStaffModal visible={modalVisible} onClose={() => setModalVisible(false)} onCreated={handleStaffCreated} />
+        <StaffDetailsModal
+          visible={detailsModalVisible}
+          staff={selectedStaff}
+          onClose={() => setDetailsModalVisible(false)}
+          onUpdated={handleStaffUpdated}
+          onDeleted={handleStaffDeleted}
+        />
+      </SafeAreaView>
+    </>
   );
 }
 
@@ -371,15 +398,623 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('staff_info');
+  const [shifts, setShifts] = useState([]);
+  const [loadingShifts, setLoadingShifts] = useState(false);
+  const [dayPickerVisible, setDayPickerVisible] = useState(false);
+  
+  // Shift management states
+  const [selectedDay, setSelectedDay] = useState('Monday');
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('17:00');
+  const [editingShiftId, setEditingShiftId] = useState(null);
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const [startTimePicker, setStartTimePicker] = useState(false);
+  const [endTimePicker, setEndTimePicker] = useState(false);
+
+  // Zaman seçicisi için yardımcı fonksiyonlar
+  const showStartTimePicker = () => {
+    setStartTimePicker(true);
+  };
+
+  const showEndTimePicker = () => {
+    setEndTimePicker(true);
+  };
+
+  const hideStartTimePicker = () => {
+    setStartTimePicker(false);
+  };
+
+  const hideEndTimePicker = () => {
+    setEndTimePicker(false);
+  };
+
+  // Zaman formatı için yardımcı fonksiyon
+  const formatTime = (hours, minutes) => {
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  const handleStartTimeChange = (date) => {
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    setStartTime(formatTime(hours, minutes));
+    hideStartTimePicker();
+  };
+
+  const handleEndTimeChange = (date) => {
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    setEndTime(formatTime(hours, minutes));
+    hideEndTimePicker();
+  };
+
+  // Organize shifts by day
+  const [shiftsByDay, setShiftsByDay] = useState({});
+  
+  // Keep track of API operations to prevent race conditions
+  const [isApiOperationInProgress, setIsApiOperationInProgress] = useState(false);
+  
+  // Add a unique key to force React to recreate the component when needed
+  const [componentKey, setComponentKey] = useState(Date.now().toString());
+  
+  // Force a re-render when needed
+  const forceUpdate = useCallback(() => {
+    setComponentKey(Date.now().toString());
+  }, []);
 
   useEffect(() => {
     if (staff) {
-      console.log('Detay görünümüne gelen personel verisi:', JSON.stringify(staff, null, 2));
-      setForm({ ...staff });
+      console.log('Staff detail data:', JSON.stringify(staff, null, 2));
+      // Make sure all fields are properly mapped for both camelCase and PascalCase API responses
+      const formData = {
+        ...staff,
+        // Ensure we have normalized field names regardless of API response format
+        id: staff.id,
+        firstName: staff.firstName || (staff.FirstName || ''),
+        lastName: staff.lastName || (staff.LastName || ''),
+        name: staff.name || `${staff.firstName || staff.FirstName || ''} ${staff.lastName || staff.LastName || ''}`,
+        email: staff.email || staff.Email || '',
+        phoneNumber: staff.phoneNumber || staff.PhoneNumber || '',
+        department: staff.department || staff.Department || '',
+        role: staff.role || staff.Role || staff.position || '',
+        position: staff.position || staff.role || staff.Role || '',
+        startDate: staff.startDate || staff.StartDate || '',
+        salary: staff.salary || staff.Salary || 0,
+        status: staff.status || (staff.IsActive ? 'Active' : 'Inactive')
+      };
+      console.log('Normalized form data:', formData);
+      setForm(formData);
       setEditMode(false);
       setError(null);
+      
+      // Reset shifts state when staff changes
+      setShifts([]);
+      setShiftsByDay({});
     }
   }, [staff, visible]);
+
+  useEffect(() => {
+    if (staff && visible) {
+      // Only fetch shifts when the modal is visible
+      if (activeTab === 'shift_schedule') {
+        console.log('Active tab is shift_schedule, fetching shifts...');
+        fetchShifts();
+      }
+    }
+  }, [staff, visible, activeTab]);
+
+  // Effect to organize shifts by day when shifts array changes
+  useEffect(() => {
+    if (Array.isArray(shifts) && shifts.length > 0) {
+      console.log(`Organizing ${shifts.length} shifts by day...`);
+      const byDay = {};
+      days.forEach(day => {
+        byDay[day] = shifts.filter(shift => 
+          shift && 
+          shift.dayOfTheWeek === day &&
+          shift.id &&
+          shift.startTime && 
+          shift.endTime
+        );
+      });
+      
+      console.log('Organized shifts by day:', JSON.stringify(byDay, null, 2));
+      console.log('Total organized shifts:', Object.values(byDay).flat().length);
+      
+      // Verify integrity of data
+      const totalOrganizedShifts = Object.values(byDay).flat().length;
+      if (totalOrganizedShifts !== shifts.length) {
+        console.warn(`Data integrity warning: shifts array has ${shifts.length} items but organized shifts has ${totalOrganizedShifts}`);
+      }
+      
+      setShiftsByDay(byDay);
+    } else if (Array.isArray(shifts) && shifts.length === 0) {
+      // Initialize empty structure if no shifts
+      const emptyByDay = {};
+      days.forEach(day => {
+        emptyByDay[day] = [];
+      });
+      setShiftsByDay(emptyByDay);
+    }
+  }, [shifts]);
+  
+  // New effect to handle auto-refresh functionality
+  useEffect(() => {
+    let refreshTimer = null;
+    
+    if (staff && visible && activeTab === 'shift_schedule' && !isApiOperationInProgress) {
+      // Set up auto-refresh every 10 seconds to check for server changes
+      refreshTimer = setInterval(() => {
+        console.log('Auto-refresh timer triggered');
+        fetchShifts();
+      }, 60000); // Refresh every minute
+    }
+    
+    return () => {
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+      }
+    };
+  }, [staff, visible, activeTab, isApiOperationInProgress]);
+
+  const fetchShifts = async () => {
+    if (!staff || !staff.id) {
+      console.warn('Cannot fetch shifts: missing staff ID');
+      return;
+    }
+    
+    if (isApiOperationInProgress) {
+      console.warn('Skipping fetchShifts because another API operation is in progress');
+      return;
+    }
+    
+    setLoadingShifts(true);
+    setIsApiOperationInProgress(true);
+    
+    try {
+      console.log(`Fetching shifts for staff ID: ${staff.id}`);
+      
+      // Backup current shifts for safety
+      const currentShiftsCopy = [...shifts];
+      console.log(`Backing up ${currentShiftsCopy.length} existing shifts before fetch`);
+      
+      // Create a more robust cache-busting mechanism
+      const timestamp = Date.now() + Math.random().toString(36).substring(2, 15);
+      
+      // 1. Get shifts from the API with cache-busting
+      const response = await shiftService.getShifts(staff.id, timestamp);
+      console.log('Fetched shifts raw response:', JSON.stringify(response));
+      
+      // Handle unexpected response formats
+      if (!response) {
+        console.warn('API returned empty response - keeping existing shifts');
+        return; // Keep current shifts
+      }
+      
+      if (!Array.isArray(response)) {
+        console.warn('Unexpected shift data format - keeping existing shifts:', response);
+        return; // Keep current shifts
+      }
+      
+      // 2. Filter and validate shifts
+      const validShifts = response.filter(shift => 
+        shift && 
+        shift.id && 
+        shift.dayOfTheWeek && 
+        shift.startTime && 
+        shift.endTime
+      );
+      
+      console.log(`Found ${validShifts.length} valid shifts out of ${response.length} returned`);
+      
+      // Merge just updated shifts with existing shifts
+      // If API returns empty array but we have shifts locally, this is a red flag
+      const shouldKeepLocalShifts = validShifts.length === 0 && currentShiftsCopy.length > 0;
+      
+      if (shouldKeepLocalShifts) {
+        console.warn('API returned empty array but we have local shifts - keeping local data');
+        // Don't update the state with empty data
+        return;
+      }
+      
+      console.log(`Updating shifts state from ${shifts.length} to ${validShifts.length} shifts`);
+      
+      // Maintain current shift IDs if the API returns new ones
+      const mergedShifts = validShifts.map(shift => {
+        // Look for existing shift with same ID
+        const existingShift = currentShiftsCopy.find(s => s.id === shift.id);
+        if (existingShift) {
+          // If found, use dayOfWeek from server but preserve times in case they were just edited
+          return {
+            ...shift,
+            // Keep client-side formatted times if they exist
+            startTime: shift.startTime || existingShift.startTime,
+            endTime: shift.endTime || existingShift.endTime
+          };
+        }
+        return shift;
+      });
+      
+      setShifts(mergedShifts);
+      
+      // 3. Organize shifts by day to ensure UI is consistent
+      const byDay = {};
+      days.forEach(day => {
+        byDay[day] = mergedShifts.filter(shift => 
+          shift && 
+          shift.dayOfTheWeek === day &&
+          shift.id &&
+          shift.startTime && 
+          shift.endTime
+        );
+      });
+      
+      console.log('Updated shifts by day:', JSON.stringify(byDay, null, 2));
+      setShiftsByDay(byDay);
+      
+      // 4. Log detailed info for debugging
+      console.log("DEBUGGING: Full shift data after fetch:");
+      mergedShifts.forEach(shift => {
+        console.log(`Shift ID: ${shift.id}, Day: ${shift.dayOfTheWeek}, Time: ${shift.startTime}-${shift.endTime}`);
+      });
+      
+    } catch (err) {
+      console.error('Error loading shifts:', err);
+      console.error('Failed to load shifts: ' + (err.message || ''));
+    } finally {
+      setLoadingShifts(false);
+      setIsApiOperationInProgress(false);
+      // Force component re-render
+      setComponentKey(Date.now().toString());
+    }
+  };
+
+  // Helper function to get shifts for a specific day
+  const getShiftsForDay = (day) => {
+    return shiftsByDay[day] || [];
+  };
+
+  const handleAddUpdateShift = async () => {
+    if (!staff || !staff.id) {
+      console.error('Staff information is missing');
+      return;
+    }
+    
+    if (isApiOperationInProgress) {
+      console.warn('Another operation is in progress');
+      return;
+    }
+    
+    console.log('============= ADD/UPDATE SHIFT STARTED =============');
+    console.log('Staff ID:', staff.id);
+    console.log('Selected Day:', selectedDay);
+    console.log('Start Time:', startTime);
+    console.log('End Time:', endTime);
+    console.log('Editing Shift ID:', editingShiftId || 'NEW SHIFT');
+    console.log('Current shift count:', shifts.length);
+    
+    // Input validation (same as before)
+    if (!selectedDay) {
+      console.error('Validation Error: Please select a day for the shift');
+      return;
+    }
+    
+    if (!startTime) {
+      console.error('Validation Error: Please enter a start time');
+      return;
+    }
+    
+    if (!endTime) {
+      console.error('Validation Error: Please enter an end time');
+      return;
+    }
+    
+    // Validate time format (should be in HH:MM format)
+    const timeFormatRegex = /^\d{2}:\d{2}$/;
+    if (!timeFormatRegex.test(startTime) || !timeFormatRegex.test(endTime)) {
+      console.error('Validation Error: Times must be in HH:MM format (e.g., 09:00)');
+      return;
+    }
+    
+    // Check if start time is before end time
+    if (startTime >= endTime) {
+      console.error('Validation Error: Start time must be before end time');
+      return;
+    }
+    
+    setLoading(true);
+    setIsApiOperationInProgress(true);
+    
+    try {
+      // Deep copy of current shifts to avoid any reference issues
+      const currentShiftsCopy = JSON.parse(JSON.stringify(shifts));
+      console.log('Current shifts copy:', currentShiftsCopy);
+      
+      // Prepare shift data
+      const newShiftData = {
+        dayOfTheWeek: selectedDay,
+        startTime: startTime,
+        endTime: endTime,
+        staffId: parseInt(staff.id)
+      };
+      
+      console.log('Preparing shift data:', JSON.stringify(newShiftData, null, 2));
+      
+      let result;
+      
+      if (editingShiftId) {
+        // UPDATE EXISTING SHIFT
+        console.log(`Updating shift with ID: ${editingShiftId}`);
+        
+        try {
+          result = await shiftService.updateShift(staff.id, editingShiftId, newShiftData);
+          console.log('Shift update result:', JSON.stringify(result, null, 2));
+          
+          // Immediately update local state for UI consistency
+          const updatedShift = {
+            id: editingShiftId,
+            dayOfTheWeek: selectedDay,
+            startTime: startTime,
+            endTime: endTime,
+            staffId: parseInt(staff.id)
+          };
+          
+          // 1. Update the shifts array - replace old shift with updated one
+          const updatedShifts = currentShiftsCopy.map(shift => 
+            shift.id === editingShiftId ? updatedShift : shift
+          );
+          console.log('Updated shifts after edit:', updatedShifts.length);
+          setShifts(updatedShifts);
+          
+          // 2. Update shifts by day
+          const updatedShiftsByDay = {...shiftsByDay};
+          
+          // First, remove the shift from its current day (which might be different)
+          Object.keys(updatedShiftsByDay).forEach(day => {
+            updatedShiftsByDay[day] = updatedShiftsByDay[day].filter(shift => shift.id !== editingShiftId);
+          });
+          
+          // Then add it to the correct day
+          if (!updatedShiftsByDay[selectedDay]) {
+            updatedShiftsByDay[selectedDay] = [];
+          }
+          updatedShiftsByDay[selectedDay].push(updatedShift);
+          
+          setShiftsByDay(updatedShiftsByDay);
+          
+        } catch (error) {
+          console.error('Failed to update shift:', error);
+        }
+        
+      } else {
+        // CREATE NEW SHIFT
+        console.log('Creating new shift');
+        
+        try {
+          // Check if we have existing shifts for other days
+          if (currentShiftsCopy && currentShiftsCopy.length > 0) {
+            console.log('Existing shifts found. Sending all shifts together.');
+            
+            // Filter out any invalid shifts first
+            const validShifts = currentShiftsCopy.filter(shift => 
+              shift && 
+              shift.dayOfTheWeek && 
+              shift.startTime && 
+              shift.endTime
+            );
+            
+            if (validShifts.length > 0) {
+              console.log(`Found ${validShifts.length} valid shifts to include in request`);
+              
+              // Create a combined array of all existing shifts + new shift
+              const allShiftsData = [
+                ...validShifts.map(shift => ({
+                  dayOfTheWeek: shift.dayOfTheWeek,
+                  startTime: shift.startTime,
+                  endTime: shift.endTime,
+                  staffId: parseInt(staff.id)
+                })),
+                newShiftData
+              ];
+              
+              console.log('Sending combined shifts data:', JSON.stringify(allShiftsData, null, 2));
+              
+              // Send the entire array of shifts instead of just the new one
+              result = await shiftService.addShift(staff.id, allShiftsData);
+            } else {
+              console.log('No valid shifts found in current shifts array. Sending only new shift.');
+              result = await shiftService.addShift(staff.id, newShiftData);
+            }
+          } else {
+            // No existing shifts, send just the new one
+            console.log('No existing shifts. Sending only new shift.');
+            result = await shiftService.addShift(staff.id, newShiftData);
+          }
+          
+          console.log('New shift result:', JSON.stringify(result, null, 2));
+          
+          if (result && result.id) {
+            // Make sure we have the new shift in the proper format
+            const newShift = {
+              id: result.id,
+              dayOfTheWeek: selectedDay, 
+              startTime: startTime,
+              endTime: endTime,
+              staffId: parseInt(staff.id)
+            };
+            
+            // 1. Add to shifts array WITHOUT losing existing shifts
+            const newShiftsArray = [...currentShiftsCopy, newShift];
+            console.log(`Adding new shift. Original count: ${currentShiftsCopy.length}, New count: ${newShiftsArray.length}`);
+            setShifts(newShiftsArray);
+            
+            // 2. Add to shifts by day
+            const updatedShiftsByDay = {...shiftsByDay};
+            if (!updatedShiftsByDay[selectedDay]) {
+              updatedShiftsByDay[selectedDay] = [];
+            }
+            updatedShiftsByDay[selectedDay].push(newShift);
+            
+            setShiftsByDay(updatedShiftsByDay);
+            console.log(`Updated shifts by day. Day: ${selectedDay}, Count: ${updatedShiftsByDay[selectedDay].length}`);
+          } else {
+            console.error('API returned invalid data for new shift');
+            
+            // Even though API didn't return a proper ID, still update the UI with a temporary ID
+            const tempId = Date.now();
+            const newShift = {
+              id: tempId,
+              dayOfTheWeek: selectedDay, 
+              startTime: startTime,
+              endTime: endTime,
+              staffId: parseInt(staff.id)
+            };
+            
+            // Add to shifts array
+            const newShiftsArray = [...currentShiftsCopy, newShift];
+            setShifts(newShiftsArray);
+            
+            // Add to shifts by day
+            const updatedShiftsByDay = {...shiftsByDay};
+            if (!updatedShiftsByDay[selectedDay]) {
+              updatedShiftsByDay[selectedDay] = [];
+            }
+            updatedShiftsByDay[selectedDay].push(newShift);
+            setShiftsByDay(updatedShiftsByDay);
+            
+            console.log(`Added temporary shift with ID: ${tempId} to UI state`);
+          }
+        } catch (error) {
+          console.error('Failed to create new shift:', error);
+          
+          // Even on error, update the UI with a temporary ID to provide feedback
+          const tempId = Date.now();
+          const newShift = {
+            id: tempId,
+            dayOfTheWeek: selectedDay, 
+            startTime: startTime,
+            endTime: endTime,
+            staffId: parseInt(staff.id)
+          };
+          
+          // Add to shifts array
+          const newShiftsArray = [...currentShiftsCopy, newShift];
+          setShifts(newShiftsArray);
+          
+          // Add to shifts by day
+          const updatedShiftsByDay = {...shiftsByDay};
+          if (!updatedShiftsByDay[selectedDay]) {
+            updatedShiftsByDay[selectedDay] = [];
+          }
+          updatedShiftsByDay[selectedDay].push(newShift);
+          setShiftsByDay(updatedShiftsByDay);
+          
+          console.log(`Added temporary shift with ID: ${tempId} to UI state despite API error`);
+        }
+      }
+      
+      // Reset form after successful operation
+      resetShiftForm();
+      
+      // Force UI update
+      setComponentKey(Date.now().toString());
+      
+    } catch (err) {
+      console.error('Error in shift operation:', err);
+    } finally {
+      setLoading(false);
+      setIsApiOperationInProgress(false);
+    }
+  };
+
+  const handleDeleteShift = async (shiftId) => {
+    if (!staff || !staff.id) {
+      console.error('Error: Staff information is missing');
+      return;
+    }
+    
+    console.log(`Deleting shift ${shiftId} for staff ${staff.id}`);
+    
+    setLoading(true);
+    setIsApiOperationInProgress(true);
+    
+    try {
+      // 1. Find the shift we're about to delete for reference
+      const shiftToDelete = shifts.find(shift => shift.id === shiftId);
+      const dayOfWeek = shiftToDelete?.dayOfTheWeek;
+      
+      console.log(`Found shift to delete: ID=${shiftId}, Day=${dayOfWeek}`);
+      
+      // 2. Call API to delete the shift
+      const result = await shiftService.deleteShift(staff.id, shiftId);
+      console.log(`Shift ${shiftId} deletion result:`, result);
+      
+      // 3. Even if API succeeds, immediately update our local state
+      // Remove from shifts array
+      const updatedShifts = shifts.filter(shift => shift.id !== shiftId);
+      setShifts(updatedShifts);
+      
+      // Update shifts by day structure
+      if (dayOfWeek) {
+        const updatedShiftsByDay = {...shiftsByDay};
+        if (updatedShiftsByDay[dayOfWeek]) {
+          updatedShiftsByDay[dayOfWeek] = updatedShiftsByDay[dayOfWeek].filter(
+            shift => shift.id !== shiftId
+          );
+          setShiftsByDay(updatedShiftsByDay);
+        }
+      }
+      
+      // 4. Force UI update
+      setComponentKey(Date.now().toString());
+      
+      console.log('Shift successfully deleted');
+      
+      // 5. Refresh shifts after a short delay to ensure server sync
+      setTimeout(() => {
+        fetchShifts();
+      }, 500);
+      
+    } catch (err) {
+      console.error('Error deleting shift:', err);
+      
+      // Even if there's an error, update the UI
+      const updatedShifts = shifts.filter(shift => shift.id !== shiftId);
+      setShifts(updatedShifts);
+      
+      // Update shifts by day
+      const shiftToDelete = shifts.find(shift => shift.id === shiftId);
+      if (shiftToDelete && shiftToDelete.dayOfTheWeek) {
+        const updatedShiftsByDay = {...shiftsByDay};
+        if (updatedShiftsByDay[shiftToDelete.dayOfTheWeek]) {
+          updatedShiftsByDay[shiftToDelete.dayOfTheWeek] = updatedShiftsByDay[shiftToDelete.dayOfTheWeek].filter(
+            shift => shift.id !== shiftId
+          );
+          setShiftsByDay(updatedShiftsByDay);
+        }
+      }
+      
+      // Force UI update
+      setComponentKey(Date.now().toString());
+    } finally {
+      setLoading(false);
+      setIsApiOperationInProgress(false);
+    }
+  };
+
+  const handleEditShift = (shift) => {
+    setSelectedDay(shift.dayOfTheWeek);
+    setStartTime(shift.startTime);
+    setEndTime(shift.endTime);
+    setEditingShiftId(shift.id);
+  };
+
+  const resetShiftForm = () => {
+    setSelectedDay('Monday');
+    setStartTime('09:00');
+    setEndTime('17:00');
+    setEditingShiftId(null);
+  };
 
   if (!staff) return null;
 
@@ -391,11 +1026,16 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
     setLoading(true);
     setError(null);
     try {
+      // Validation check
+      if (!form.id) {
+        throw new Error('Staff ID is missing');
+      }
+
       // Ad ve soyadı ayır
       const fullName = form.name || '';
       const nameParts = fullName.split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+      const firstName = nameParts[0] || form.firstName || '';
+      const lastName = nameParts.slice(1).join(' ') || form.lastName || '';
 
       // Maaş değerini kontrol et
       const salaryValue = form.salary || form.Salary || 0;
@@ -406,24 +1046,34 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
         id: form.id,
         FirstName: firstName,
         LastName: lastName,
-        Department: form.department,
-        Role: form.position || form.role,
-        StartDate: form.startDate,
-        Email: form.email,
-        PhoneNumber: form.phoneNumber,
+        Department: form.department || form.Department,
+        Role: form.position || form.role || form.Role,
+        StartDate: form.startDate || form.StartDate,
+        Email: form.email || form.Email,
+        PhoneNumber: form.phoneNumber || form.PhoneNumber,
         Salary: Number(salaryValue),
         IsActive: form.status === 'Active'
       };
       
       console.log('Güncellenecek veri:', updatedStaff);
-      await staffService.updateStaff(form.id, updatedStaff);
+      const result = await staffService.updateStaff(form.id, updatedStaff);
+      console.log('Update result:', result);
+      
+      // Update success - close edit mode
       setEditMode(false);
+      // Alert.alert('Success', 'Staff information updated successfully');
+      console.log('Success: Staff information updated successfully');
+      
+      // Refresh data
       onUpdated && onUpdated();
     } catch (err) {
-      setError('Update failed.');
-      console.log('Update error:', err?.response?.data || err.message || err);
+      console.error('Update error:', err);
+      setError('Update failed: ' + (err.message || 'Unknown error'));
+      // Alert.alert('Update Failed', err.message || 'Failed to update staff information');
+      console.error('Update Failed: ' + (err.message || 'Failed to update staff information'));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleDelete = async () => {
@@ -435,17 +1085,32 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
     setLoading(true);
     setError(null);
     try {
+      // Validation check
+      if (!staff || !staff.id) {
+        throw new Error('Staff ID is missing');
+      }
+      
       console.log('Silinecek personel ID:', staff.id);
-      await staffService.deleteStaff(staff.id);
+      
+      const result = await staffService.deleteStaff(staff.id);
+      console.log('Delete result:', result);
+      
       console.log('Silme başarılı!');
+      // Alert.alert('Success', 'Staff deleted successfully');
+      console.log('Success: Staff deleted successfully');
+      
+      // Close modal and refresh parent list
       onDeleted && onDeleted();
       onClose();
     } catch (err) {
       console.error('Silme hatası:', err);
-      setError('Delete failed. ' + (err.message || ''));
+      setError('Delete failed: ' + (err.message || 'Unknown error'));
       setDeleteConfirmVisible(false);
+      // Alert.alert('Delete Failed', err.message || 'Failed to delete staff');
+      console.error('Delete Failed: ' + (err.message || 'Failed to delete staff'));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const cancelDelete = () => {
@@ -463,92 +1128,425 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
             </TouchableOpacity>
           </View>
           {error && <Text style={styles.detailsError}>{error}</Text>}
+          
+          {/* Tab Navigation */}
+          <View style={styles.staffTabMenu}>
+            <TouchableOpacity 
+              style={[styles.staffTabItem, activeTab === 'staff_info' && styles.staffTabItemActive]}
+              onPress={() => setActiveTab('staff_info')}
+            >
+              <MaterialIcons name="person" size={20} color="#3C3169" />
+              <Text style={styles.staffTabText}>Staff Information</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.staffTabItem, activeTab === 'shift_schedule' && styles.staffTabItemActive]}
+              onPress={() => setActiveTab('shift_schedule')}
+            >
+              <MaterialIcons name="schedule" size={20} color="#3C3169" />
+              <Text style={styles.staffTabText}>Current Shift Schedule</Text>
+            </TouchableOpacity>
+          </View>
+          
           <ScrollView>
-            {/* Avatar & Name */}
-            <View style={styles.detailsAvatarBlock}>
-              <View style={styles.detailsAvatarCircle}>
-                <Text style={styles.detailsAvatarText}>{(staff.name ? staff.name.split(' ').map(n => n[0]).join('') : (staff.firstName && staff.lastName ? `${staff.firstName[0]}${staff.lastName[0]}` : '')).toLowerCase()}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-                <View style={staff.status === 'Active' ? styles.statusActive : styles.statusInactive}>
-                  <Text style={styles.statusText}>{staff.status === 'Active' ? 'Active' : 'Inactive'}</Text>
+            {activeTab === 'staff_info' && (
+              <>
+                {/* Avatar & Name */}
+                <View style={styles.detailsAvatarBlock}>
+                  <View style={styles.detailsAvatarCircle}>
+                    <Text style={styles.detailsAvatarText}>{(staff.name ? staff.name.split(' ').map(n => n[0]).join('') : (staff.firstName && staff.lastName ? `${staff.firstName[0]}${staff.lastName[0]}` : '')).toLowerCase()}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                    <View style={staff.status === 'Active' ? styles.statusActive : styles.statusInactive}>
+                      <Text style={styles.statusText}>{staff.status === 'Active' ? 'Active' : 'Inactive'}</Text>
+                    </View>
+                    <Text style={styles.detailsName}>{staff.name || `${staff.firstName || ''} ${staff.lastName || ''}`}</Text>
+                  </View>
+                  <Text style={styles.detailsPosition}>{staff.position || staff.role}</Text>
                 </View>
-                <Text style={styles.detailsName}>{staff.name || `${staff.firstName || ''} ${staff.lastName || ''}`}</Text>
-              </View>
-              <Text style={styles.detailsPosition}>{staff.position || staff.role}</Text>
-            </View>
-            {/* Info Sections */}
-            <View style={styles.detailsCard}>
-              <Text style={styles.detailsSection}><MaterialIcons name="info" size={20} color="#6B3DC9" />  Basic Information</Text>
-              <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Staff ID:</Text><Text style={styles.detailsValue}>{staff.id}</Text></View>
-              <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Email:</Text>{editMode ? <TextInput value={form.email} onChangeText={v => handleChange('email', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.email}</Text>}</View>
-              <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Phone:</Text>{editMode ? <TextInput value={form.phoneNumber} onChangeText={v => handleChange('phoneNumber', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.phoneNumber}</Text>}</View>
-            </View>
-            <View style={styles.detailsCard}>
-              <Text style={styles.detailsSection}><MaterialIcons name="work" size={20} color="#6B3DC9" />  Employment Information</Text>
-              <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Department:</Text>{editMode ? <TextInput value={form.department} onChangeText={v => handleChange('department', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.department}</Text>}</View>
-              <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Start Date:</Text>{editMode ? <TextInput value={form.startDate} onChangeText={v => handleChange('startDate', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{(staff.startDate || '').slice(0, 10)}</Text>}</View>
-              <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Position/Role:</Text>{editMode ? <TextInput value={form.position || form.role} onChangeText={v => handleChange('position', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.position || staff.role}</Text>}</View>
-              <View style={styles.detailsRow}>
-                <Text style={styles.detailsLabel}>Salary:</Text>
-                {editMode ? (
-                  <TextInput 
-                    value={String(form.salary || '')} 
-                    onChangeText={v => handleChange('salary', v)} 
-                    style={styles.detailsInput} 
-                    keyboardType="numeric" 
-                  />
-                ) : (
-                  <Text style={[styles.detailsValue, { fontWeight: 'bold', color: '#16A085' }]}>
-                    {staff.salary ? `${staff.salary} TL` : '0 TL'}
+                
+                {/* Info Sections */}
+                <View style={styles.detailsCard}>
+                  <Text style={styles.detailsSection}><MaterialIcons name="info" size={20} color="#6B3DC9" />  Basic Information</Text>
+                  <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Staff ID:</Text><Text style={styles.detailsValue}>{staff.id}</Text></View>
+                  <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Email:</Text>{editMode ? <TextInput value={form.email} onChangeText={v => handleChange('email', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.email}</Text>}</View>
+                  <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Phone:</Text>{editMode ? <TextInput value={form.phoneNumber} onChangeText={v => handleChange('phoneNumber', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.phoneNumber}</Text>}</View>
+                </View>
+                <View style={styles.detailsCard}>
+                  <Text style={styles.detailsSection}><MaterialIcons name="work" size={20} color="#6B3DC9" />  Employment Information</Text>
+                  <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Department:</Text>{editMode ? <TextInput value={form.department} onChangeText={v => handleChange('department', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.department}</Text>}</View>
+                  <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Start Date:</Text>{editMode ? <TextInput value={form.startDate} onChangeText={v => handleChange('startDate', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{(staff.startDate || '').slice(0, 10)}</Text>}</View>
+                  <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Position/Role:</Text>{editMode ? <TextInput value={form.position || form.role} onChangeText={v => handleChange('position', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.position || staff.role}</Text>}</View>
+                  <View style={styles.detailsRow}>
+                    <Text style={styles.detailsLabel}>Salary:</Text>
+                    {editMode ? (
+                      <TextInput 
+                        value={String(form.salary || '')} 
+                        onChangeText={v => handleChange('salary', v)} 
+                        style={styles.detailsInput} 
+                        keyboardType="numeric" 
+                      />
+                    ) : (
+                      <Text style={[styles.detailsValue, { fontWeight: 'bold', color: '#16A085' }]}>
+                        {staff.salary ? `${staff.salary} TL` : '0 TL'}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.detailsButtonRow}>
+                  {editMode ? (
+                    <>
+                      <TouchableOpacity style={styles.detailsCancelBtn} onPress={() => setEditMode(false)}><Text style={styles.detailsCancelText}>Cancel</Text></TouchableOpacity>
+                      <TouchableOpacity style={styles.detailsSaveBtn} onPress={handleUpdate} disabled={loading}>
+                        <Text style={styles.detailsSaveText}>{loading ? 'Saving...' : 'Save'}</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      {deleteConfirmVisible ? (
+                        <View style={styles.deleteConfirmBox}>
+                          <Text style={styles.deleteConfirmText}>Are you sure you want to delete this staff?</Text>
+                          <View style={styles.deleteConfirmButtons}>
+                            <TouchableOpacity style={[styles.detailsCancelBtn, {marginRight: 10}]} onPress={cancelDelete}>
+                              <Text style={styles.detailsCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.detailsDeleteBtn]} onPress={handleDelete}>
+                              <MaterialIcons name="delete-forever" size={20} color="#fff" />
+                              <Text style={styles.detailsDeleteText}>Confirm Delete</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ) : (
+                        <>
+                          <TouchableOpacity style={styles.detailsEditBtn} onPress={() => setEditMode(true)}>
+                            <MaterialIcons name="edit" size={20} color="#fff" />
+                            <Text style={styles.detailsEditText}>Edit</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.detailsDeleteBtn} onPress={handleDelete}>
+                            <MaterialIcons name="delete" size={20} color="#fff" />
+                            <Text style={styles.detailsDeleteText}>Delete</Text>
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </>
+                  )}
+                </View>
+              </>
+            )}
+            
+            {activeTab === 'shift_schedule' && (
+              <>
+                <View style={styles.shiftCard}>
+                  <Text style={styles.shiftSectionTitle}>
+                    <MaterialIcons name="schedule" size={22} color="#6B3DC9" /> Current Shift Schedule
                   </Text>
-                )}
-              </View>
-            </View>
-            <View style={styles.detailsButtonRow}>
-              {editMode ? (
-                <>
-                  <TouchableOpacity style={styles.detailsCancelBtn} onPress={() => setEditMode(false)}><Text style={styles.detailsCancelText}>Cancel</Text></TouchableOpacity>
-                  <TouchableOpacity style={styles.detailsSaveBtn} onPress={handleUpdate} disabled={loading}>
-                    <Text style={styles.detailsSaveText}>{loading ? 'Saving...' : 'Save'}</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  {deleteConfirmVisible ? (
-                    <View style={styles.deleteConfirmBox}>
-                      <Text style={styles.deleteConfirmText}>Are you sure you want to delete this staff?</Text>
-                      <View style={styles.deleteConfirmButtons}>
-                        <TouchableOpacity style={[styles.detailsCancelBtn, {marginRight: 10}]} onPress={cancelDelete}>
-                          <Text style={styles.detailsCancelText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.detailsDeleteBtn]} onPress={handleDelete}>
-                          <MaterialIcons name="delete-forever" size={20} color="#fff" />
-                          <Text style={styles.detailsDeleteText}>Confirm Delete</Text>
+                  
+                  {/* Add/Update Shift Section - Updated UI */}
+                  <View style={styles.addShiftContainer}>
+                    <Text style={styles.addShiftTitle}>
+                      <MaterialIcons name={editingShiftId ? "edit" : "add"} size={20} color="#3C3169" /> 
+                      {editingShiftId ? "Update Shift" : "Add New Shift"}
+                    </Text>
+                    
+                    <View style={styles.shiftFormRow}>
+                      <View style={styles.shiftFormGroup}>
+                        <Text style={styles.shiftFormLabel}>Day</Text>
+                        <TouchableOpacity 
+                          style={styles.shiftSelect}
+                          onPress={() => {
+                            setDayPickerVisible(true);
+                          }}
+                        >
+                          <Text style={styles.shiftSelectText}>{selectedDay}</Text>
+                          <MaterialIcons name="arrow-drop-down" size={24} color="#3C3169" />
                         </TouchableOpacity>
                       </View>
                     </View>
+                    
+                    <View style={styles.shiftTimeRow}>
+                      <View style={styles.shiftTimeGroup}>
+                        <Text style={styles.shiftFormLabel}>Start Time</Text>
+                        <TouchableOpacity 
+                          style={styles.shiftTimeInput}
+                          onPress={showStartTimePicker}
+                        >
+                          <Text style={{fontSize: 16}}>{startTime}</Text>
+                          <MaterialIcons name="schedule" size={20} color="#3C3169" />
+                        </TouchableOpacity>
+                      </View>
+                      
+                      <View style={styles.shiftTimeGroup}>
+                        <Text style={styles.shiftFormLabel}>End Time</Text>
+                        <TouchableOpacity 
+                          style={styles.shiftTimeInput}
+                          onPress={showEndTimePicker}
+                        >
+                          <Text style={{fontSize: 16}}>{endTime}</Text>
+                          <MaterialIcons name="schedule" size={20} color="#3C3169" />
+                        </TouchableOpacity>
+                      </View>
+                      
+                      <View style={styles.shiftButtonGroup}>
+                        {editingShiftId && (
+                          <TouchableOpacity 
+                            style={styles.cancelShiftButton}
+                            onPress={resetShiftForm}
+                          >
+                            <MaterialIcons name="close" size={20} color="#777" />
+                          </TouchableOpacity>
+                        )}
+                        
+                        <TouchableOpacity 
+                          style={[styles.addShiftButton, editingShiftId && {backgroundColor: '#16A085'}]}
+                          onPress={handleAddUpdateShift}
+                          disabled={loading}
+                        >
+                          <MaterialIcons name={editingShiftId ? "check" : "add"} size={20} color="#fff" />
+                          <Text style={styles.addShiftButtonText}>
+                            {loading ? "..." : (editingShiftId ? "UPDATE" : "ADD")}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Zaman Seçiciler */}
+                <DateTimePickerModal
+                  isVisible={startTimePicker}
+                  mode="time"
+                  onConfirm={handleStartTimeChange}
+                  onCancel={hideStartTimePicker}
+                  is24Hour={true}
+                  date={new Date(`2000-01-01T${startTime}`)}
+                />
+                
+                <DateTimePickerModal
+                  isVisible={endTimePicker}
+                  mode="time"
+                  onConfirm={handleEndTimeChange}
+                  onCancel={hideEndTimePicker}
+                  is24Hour={true}
+                  date={new Date(`2000-01-01T${endTime}`)}
+                />
+                
+                {/* Weekly Schedule Display - Grid layout matching web version */}
+                <View style={styles.shiftCard}>
+                  <View 
+                    style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}
+                    key={`weekly-header-${componentKey}`}
+                  >
+                    <Text style={styles.weeklyScheduleTitle}>Weekly Schedule</Text>
+                    <TouchableOpacity 
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center', 
+                        backgroundColor: '#eaeaea',
+                        padding: 8,
+                        borderRadius: 8
+                      }}
+                      onPress={() => {
+                        if (!loadingShifts) {
+                          // Force a complete re-render
+                          forceUpdate();
+                          // Then fetch fresh data with no cache
+                          fetchShifts();
+                        }
+                      }}
+                      disabled={loadingShifts}
+                    >
+                      <MaterialIcons name="refresh" size={18} color="#3C3169" style={{marginRight: 5}} />
+                      <Text style={{color: '#3C3169', fontWeight: '500'}}>Refresh</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {loadingShifts ? (
+                    <ActivityIndicator size="large" color="#3C3169" style={{marginVertical: 20}} />
                   ) : (
-                    <>
-                      <TouchableOpacity style={styles.detailsEditBtn} onPress={() => setEditMode(true)}>
-                        <MaterialIcons name="edit" size={20} color="#fff" />
-                        <Text style={styles.detailsEditText}>Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.detailsDeleteBtn} onPress={handleDelete}>
-                        <MaterialIcons name="delete" size={20} color="#fff" />
-                        <Text style={styles.detailsDeleteText}>Delete</Text>
-                      </TouchableOpacity>
-                    </>
+                    <View style={styles.weeklyScheduleContainer} key={`weekly-grid-${componentKey}`}>
+                      {/* First Row */}
+                      <View style={styles.weeklyScheduleRow}>
+                        <WeekDayCard 
+                          day="Monday"
+                          shifts={getShiftsForDay("Monday")}
+                          onAddShift={() => {
+                            setSelectedDay("Monday");
+                            setEditingShiftId(null);
+                          }}
+                          onEditShift={handleEditShift}
+                          onDeleteShift={handleDeleteShift}
+                        />
+                        <WeekDayCard 
+                          day="Tuesday"
+                          shifts={getShiftsForDay("Tuesday")}
+                          onAddShift={() => {
+                            setSelectedDay("Tuesday");
+                            setEditingShiftId(null);
+                          }}
+                          onEditShift={handleEditShift}
+                          onDeleteShift={handleDeleteShift}
+                        />
+                      </View>
+                      
+                      {/* Second Row */}
+                      <View style={styles.weeklyScheduleRow}>
+                        <WeekDayCard 
+                          day="Wednesday"
+                          shifts={getShiftsForDay("Wednesday")}
+                          onAddShift={() => {
+                            setSelectedDay("Wednesday");
+                            setEditingShiftId(null);
+                          }}
+                          onEditShift={handleEditShift}
+                          onDeleteShift={handleDeleteShift}
+                        />
+                        <WeekDayCard 
+                          day="Thursday"
+                          shifts={getShiftsForDay("Thursday")}
+                          onAddShift={() => {
+                            setSelectedDay("Thursday");
+                            setEditingShiftId(null);
+                          }}
+                          onEditShift={handleEditShift}
+                          onDeleteShift={handleDeleteShift}
+                        />
+                      </View>
+                      
+                      {/* Third Row */}
+                      <View style={styles.weeklyScheduleRow}>
+                        <WeekDayCard 
+                          day="Friday"
+                          shifts={getShiftsForDay("Friday")}
+                          onAddShift={() => {
+                            setSelectedDay("Friday");
+                            setEditingShiftId(null);
+                          }}
+                          onEditShift={handleEditShift}
+                          onDeleteShift={handleDeleteShift}
+                        />
+                        <WeekDayCard 
+                          day="Saturday"
+                          shifts={getShiftsForDay("Saturday")}
+                          onAddShift={() => {
+                            setSelectedDay("Saturday");
+                            setEditingShiftId(null);
+                          }}
+                          onEditShift={handleEditShift}
+                          onDeleteShift={handleDeleteShift}
+                        />
+                      </View>
+                      
+                      {/* Fourth Row */}
+                      <View style={styles.weeklyScheduleRow}>
+                        <WeekDayCard 
+                          day="Sunday"
+                          shifts={getShiftsForDay("Sunday")}
+                          onAddShift={() => {
+                            setSelectedDay("Sunday");
+                            setEditingShiftId(null);
+                          }}
+                          onEditShift={handleEditShift}
+                          onDeleteShift={handleDeleteShift}
+                        />
+                        <View style={styles.emptyDayCard} />
+                      </View>
+                    </View>
                   )}
-                </>
-              )}
-            </View>
+                </View>
+                
+                <TouchableOpacity style={styles.closeButton} onPress={() => onClose()}>
+                  <Text style={styles.closeButtonText}>CLOSE</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </ScrollView>
         </View>
       </View>
+      {/* Day Picker Modal */}
+      <Modal visible={dayPickerVisible} transparent animationType="fade">
+        <TouchableOpacity 
+          style={styles.dayPickerOverlay} 
+          activeOpacity={1} 
+          onPress={() => setDayPickerVisible(false)}
+        >
+          <View style={styles.dayPickerContainer}>
+            {days.map(day => (
+              <TouchableOpacity 
+                key={day} 
+                style={styles.dayPickerItem}
+                onPress={() => {
+                  setSelectedDay(day);
+                  setDayPickerVisible(false);
+                }}
+              >
+                <Text style={[
+                  styles.dayPickerText,
+                  selectedDay === day && styles.dayPickerTextSelected
+                ]}>
+                  {day}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </Modal>
   );
 }
+
+// WeekDayCard component to match web version layout
+const WeekDayCard = ({ day, shifts, onAddShift, onEditShift, onDeleteShift }) => {
+  const hasShift = shifts && shifts.length > 0;
+  
+  console.log(`Rendering ${day} card with ${shifts?.length || 0} shifts`);
+  
+  return (
+    <View style={styles.dayCard} key={`day-card-${day}-${Date.now()}`}>
+      <View style={styles.dayHeaderRow}>
+        <Text style={styles.dayName}>{day}</Text>
+      </View>
+      
+      {hasShift ? (
+        <View style={styles.shiftsContainer}>
+          {shifts.map((shift) => (
+            <View key={`${shift.id}-${shift.dayOfTheWeek}`} style={styles.shiftItem}>
+              <View style={styles.shiftTimeContainer}>
+                <MaterialIcons name="access-time" size={14} color="#3C3169" style={{marginRight: 5}} />
+                <Text style={styles.shiftTimeText}>{shift.startTime} - {shift.endTime}</Text>
+              </View>
+              
+              <View style={styles.shiftActionButtons}>
+                <TouchableOpacity 
+                  style={styles.shiftEditButton}
+                  onPress={() => onEditShift(shift)}
+                >
+                  <MaterialIcons name="edit" size={18} color="#3C3169" />
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.shiftDeleteButton}
+                  onPress={() => onDeleteShift(shift.id)}
+                >
+                  <MaterialIcons name="delete" size={18} color="#e74c3c" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.noShiftText}>No shift assigned</Text>
+      )}
+      
+      <TouchableOpacity 
+        style={styles.addShiftCardButton}
+        onPress={onAddShift}
+      >
+        <MaterialIcons name="add" size={16} color="#fff" />
+        <Text style={styles.addShiftCardText}>ADD SHIFT</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -557,11 +1555,14 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#3C3169',
-    paddingVertical: 15,
+    paddingTop: 15,
+    paddingBottom: 15,
     paddingHorizontal: 15,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   headerTitleContainer: {
     flex: 1,
@@ -580,25 +1581,49 @@ const styles = StyleSheet.create({
   filters: {
     padding: 15,
     backgroundColor: '#fff',
+    paddingTop: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 15,
+    justifyContent: 'space-between',
   },
-  searchInput: {
+  searchContainer: {
+    flex: 1,
     backgroundColor: '#f0f0f0',
     borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
+    marginRight: 15,
+    height: 46,
+    justifyContent: 'center',
+  },
+  searchInput: {
+    paddingHorizontal: 15,
     fontSize: 16,
+  },
+  newStaffButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6B3DC9',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minWidth: 120,
+  },
+  newStaffButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   tabs: {
     flexDirection: 'row',
     marginBottom: 10,
   },
   tab: {
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
     backgroundColor: '#eee',
@@ -675,15 +1700,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 3,
   },
   staffRole: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 2,
+    marginBottom: 6,
   },
   staffInfo: {
     fontSize: 13,
     color: '#888',
+    marginBottom: 2,
   },
   statusActive: {
     backgroundColor: '#16A085',
@@ -708,52 +1735,11 @@ const styles = StyleSheet.create({
     borderColor: '#3C3169',
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   detailsButtonText: {
     color: '#3C3169',
     fontWeight: 'bold',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    height: 60,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: -2 },
-    elevation: 8,
-  },
-  tabBarItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-  },
-  tabBarLabel: {
-    fontSize: 12,
-    color: '#aaa',
-    marginTop: 2,
-  },
-  newStaffButtonModern: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#6B3DC9',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginLeft: 10,
-    elevation: 2,
-  },
-  newStaffButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    marginLeft: 6,
-    fontSize: 15,
   },
   modalOverlay: {
     flex: 1,
@@ -1019,5 +2005,330 @@ const styles = StyleSheet.create({
   deleteConfirmButtons: {
     flexDirection: 'row',
     justifyContent: 'center',
+  },
+  staffTabMenu: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    marginBottom: 15,
+  },
+  staffTabItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginRight: 10,
+  },
+  staffTabItemActive: {
+    borderBottomWidth: 3,
+    borderBottomColor: '#6B3DC9',
+  },
+  staffTabText: {
+    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#333',
+  },
+  shiftCard: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 15,
+  },
+  shiftSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#3C3169',
+    marginBottom: 15,
+  },
+  addShiftContainer: {
+    backgroundColor: '#f5f7fa',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+  },
+  addShiftTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3C3169',
+    marginBottom: 15,
+  },
+  shiftFormRow: {
+    marginBottom: 15,
+  },
+  shiftFormGroup: {
+    flex: 1,
+  },
+  shiftTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  shiftTimeGroup: {
+    flex: 1,
+    marginRight: 10,
+  },
+  shiftFormLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 5,
+  },
+  shiftSelect: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+  },
+  shiftSelectText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  shiftTimeInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  shiftButtonGroup: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+  },
+  cancelShiftButton: {
+    backgroundColor: '#f2f2f2',
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  addShiftButton: {
+    backgroundColor: '#6B3DC9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    height: 42,
+  },
+  addShiftButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 5,
+  },
+  weeklyScheduleTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#3C3169',
+    marginBottom: 15,
+    marginTop: 10,
+  },
+  weeklyScheduleContainer: {
+    flexDirection: 'column',
+  },
+  weeklyScheduleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  dayCard: {
+    width: '48%',
+    backgroundColor: '#f5f7fa',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 5,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  emptyDayCard: {
+    width: '48%',
+  },
+  dayHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  dayName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3C3169',
+  },
+  dayActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dayEditButton: {
+    marginRight: 8,
+  },
+  dayDeleteButton: {
+    marginRight: 8,
+  },
+  dayShiftInfo: {
+    flexDirection: 'column',
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  timeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  shiftsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#3C3169',
+  },
+  shiftsContainer: {
+    marginBottom: 8,
+    width: '100%',
+  },
+  dayAddButton: {
+    padding: 5,
+    marginLeft: 5,
+  },
+  shiftDivider: {
+    height: 1,
+    width: '100%',
+    backgroundColor: '#ddd',
+    marginVertical: 5,
+  },
+  dayShiftItem: {
+    width: '100%',
+    paddingVertical: 3,
+  },
+  dayShiftTime: {
+    fontSize: 14,
+    color: '#3C3169',
+    fontWeight: '500',
+  },
+  noShiftContainer: {
+    alignItems: 'center',
+  },
+  noShiftText: {
+    fontSize: 14,
+    color: '#888',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginVertical: 15,
+  },
+  addDayShiftButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#16A085',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  addDayShiftText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  closeButton: {
+    backgroundColor: '#6B3DC9',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 15,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  dayPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+  dayPickerContainer: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    width: '60%',
+    marginTop: 370, // Position it below the day selection field
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  dayPickerItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  dayPickerText: {
+    fontSize: 16,
+    color: '#3C3169',
+  },
+  dayPickerTextSelected: {
+    fontWeight: 'bold',
+    color: '#6B3DC9',
+  },
+  shiftItem: {
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#efefef',
+  },
+  shiftTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shiftTimeText: {
+    fontSize: 14,
+    color: '#3C3169',
+    fontWeight: '500',
+  },
+  shiftActionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shiftEditButton: {
+    marginRight: 8,
+  },
+  shiftDeleteButton: {
+    marginRight: 8,
+  },
+  addShiftCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6B3DC9',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginTop: 10,
+  },
+  addShiftCardText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 5,
   },
 }); 
