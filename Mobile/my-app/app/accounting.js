@@ -22,9 +22,72 @@ import { useRouter, Stack } from 'expo-router';
 import { accountingService } from '../services/api';
 import { format, startOfDay, subDays, formatISO, isToday } from 'date-fns';
 import DatePicker from 'react-native-modern-datepicker';
+import { useAuth } from '../context/AuthContext';
+import { hasPageAccess } from '../services/roleService';
+import AccessDenied from '../components/AccessDenied';
 
 export default function AccountingScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [hasAccess, setHasAccess] = useState(true);
+  
+  // Check if user has permission to access this page
+  useEffect(() => {
+    // Don't check access until user is loaded
+    if (!user) return;
+    
+    console.log('Checking accounting access for:', user);
+    
+    // Debug the roles array
+    if (user.roles) {
+      if (Array.isArray(user.roles)) {
+        console.log('User roles (array):', user.roles);
+      } else if (typeof user.roles === 'string') {
+        // Handle case where roles might be stored as a string
+        console.log('User roles (string):', user.roles);
+        // If roles are stored as a comma-separated string
+        const rolesArray = user.roles.split(',').map(r => r.trim());
+        console.log('Converting to array:', rolesArray);
+        // Overwrite user for permission check
+        user.roles = rolesArray;
+      } else {
+        console.log('Unexpected roles format:', typeof user.roles);
+      }
+    } else {
+      console.log('No roles found for user');
+    }
+    
+    try {
+      // Check for admin/administrator directly
+      if (user.roles && Array.isArray(user.roles)) {
+        const hasAdminRole = user.roles.some(role => 
+          typeof role === 'string' && 
+          (role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator')
+        );
+        
+        if (hasAdminRole) {
+          console.log('User has admin role, granting access');
+          setHasAccess(true);
+          return;
+        }
+      }
+      
+      // Fallback to standard permission check
+      const canAccess = hasPageAccess(user, 'accounting');
+      console.log('Access result from permission check:', canAccess);
+      setHasAccess(canAccess);
+    } catch (error) {
+      console.error('Error in access check:', error);
+      // On error, default to grant access to avoid lockouts
+      setHasAccess(true);
+    }
+  }, [user]);
+  
+  // If user doesn't have access, show access denied screen
+  if (!hasAccess) {
+    return <AccessDenied />;
+  }
+  
   const [activeTab, setActiveTab] = useState('incomes');
   const [isIncomeModalVisible, setIncomeModalVisible] = useState(false);
   const [isExpenseModalVisible, setExpenseModalVisible] = useState(false);

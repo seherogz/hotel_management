@@ -6,30 +6,48 @@ import {
   SafeAreaView, 
   TouchableOpacity, 
   ScrollView,
-  StatusBar 
+  StatusBar, 
+  Alert
 } from 'react-native';
 import { MaterialIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../../context/AuthContext';
+import { hasPageAccess } from '../../services/roleService';
 
 export default function OtherScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   
   const navigateToSection = (section) => {
+    let page = '';
+    
     switch(section) {
       case 'Accounting':
-        router.push('/accounting');
+        page = 'accounting';
         break;
       case 'Financial Reports':
-        router.push('/financial-reports');
+        page = 'financial-reports';
         break;
       case 'Manage Staff':
-        router.push('/manage-staff');
+        page = 'manage-staff';
         break;
       case 'Manage Rooms':
-        router.push('/manage-rooms');
+        page = 'manage-rooms';
         break;
       default:
         console.log(`Navigation to ${section} not implemented yet`);
+        return;
+    }
+    
+    // Check if user has permission to access this page
+    if (hasPageAccess(user, page)) {
+      router.push(`/${page}`);
+    } else {
+      // Instead of just showing an alert, navigate to access-denied page
+      router.push({
+        pathname: '/access-denied',
+        params: { returnPath: '/(tabs)/other', page: section }
+      });
     }
   };
   
@@ -81,29 +99,6 @@ export default function OtherScreen() {
           >
             <MaterialIcons name="meeting-room" size={48} color="white" />
             <Text style={styles.menuItemText}>Oda Yönetimi</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <Text style={styles.sectionTitle}>Sistem</Text>
-        
-        {/* System Options */}
-        <View style={styles.menuList}>
-          <TouchableOpacity style={styles.listItem}>
-            <MaterialIcons name="settings" size={24} color="#6B3DC9" />
-            <Text style={styles.listItemText}>Ayarlar</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#777" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.listItem}>
-            <MaterialIcons name="help" size={24} color="#6B3DC9" />
-            <Text style={styles.listItemText}>Yardım</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#777" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.listItem}>
-            <MaterialIcons name="info" size={24} color="#6B3DC9" />
-            <Text style={styles.listItemText}>Hakkında</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#777" />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -163,30 +158,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 10,
     textAlign: 'center',
-  },
-  menuList: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  listItemText: {
-    flex: 1,
-    fontSize: 16,
-    marginLeft: 15,
-    color: '#333',
   },
 }); 

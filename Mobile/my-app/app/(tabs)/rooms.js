@@ -12,13 +12,33 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router';
 import Colors from '../../constants/Colors';
 import roomService from '../../services/roomService';
+import { useAuth } from '../../context/AuthContext';
+import { hasPageAccess } from '../../services/roleService';
 
 export default function RoomsScreen() {
   const params = useLocalSearchParams();
+  const router = useRouter();
+  const { user } = useAuth();
   const username = params.username || "Utku Adanur";
+  
+  // Check for role-based access control
+  useEffect(() => {
+    if (!user) return;
+    
+    // Check if user has permission to access this page
+    const canAccess = hasPageAccess(user, 'rooms');
+    
+    if (!canAccess) {
+      console.log('User does not have permission to access Rooms');
+      router.push({
+        pathname: '/access-denied',
+        params: { returnPath: '/(tabs)', page: 'Room Status' }
+      });
+    }
+  }, [user, router]);
   
   // Get today's date formatted as DD.MM.YYYY
   const getTodayFormatted = () => {

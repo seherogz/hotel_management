@@ -8,6 +8,9 @@ import { format, isValid } from 'date-fns';
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../../context/AuthContext';
+import { hasPageAccess } from '../../services/roleService';
+import { useRouter } from 'expo-router';
 
 function formatDate(date) {
   if (!date) return '';
@@ -34,6 +37,25 @@ function getToday() {
 const PAGE_SIZE = 20;
 
 export default function CheckOutScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
+  
+  // Check for role-based access control
+  useEffect(() => {
+    if (!user) return;
+    
+    // Check if user has permission to access this page
+    const canAccess = hasPageAccess(user, 'checkOut');
+    
+    if (!canAccess) {
+      console.log('User does not have permission to access Check-Out');
+      router.push({
+        pathname: '/access-denied',
+        params: { returnPath: '/(tabs)', page: 'Check-Out' }
+      });
+    }
+  }, [user, router]);
+  
   const [allCheckOuts, setAllCheckOuts] = useState([]); // API'den gelen ham veri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

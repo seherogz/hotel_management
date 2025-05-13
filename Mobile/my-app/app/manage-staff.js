@@ -4,6 +4,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
 import { staffService, shiftService } from '../services/api';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { useAuth } from '../context/AuthContext';
+import { hasPageAccess } from '../services/roleService';
+import AccessDenied from '../components/AccessDenied';
 
 const DEPARTMENTS = [
   { key: 'all', label: 'All' },
@@ -37,12 +40,71 @@ const DEPARTMENTS_MODAL = [
 
 export default function ManageStaffScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [hasAccess, setHasAccess] = useState(true);
+  
+  // Check if user has permission to access this page
+  useEffect(() => {
+    // Don't check access until user is loaded
+    if (!user) return;
+    
+    console.log('Checking manage-staff access for:', user);
+    
+    // Debug the roles array
+    if (user.roles) {
+      if (Array.isArray(user.roles)) {
+        console.log('User roles (array):', user.roles);
+      } else if (typeof user.roles === 'string') {
+        // Handle case where roles might be stored as a string
+        console.log('User roles (string):', user.roles);
+        // If roles are stored as a comma-separated string
+        const rolesArray = user.roles.split(',').map(r => r.trim());
+        console.log('Converting to array:', rolesArray);
+        // Overwrite user for permission check
+        user.roles = rolesArray;
+      } else {
+        console.log('Unexpected roles format:', typeof user.roles);
+      }
+    } else {
+      console.log('No roles found for user');
+    }
+    
+    try {
+      // Check for admin/administrator directly
+      if (user.roles && Array.isArray(user.roles)) {
+        const hasAdminRole = user.roles.some(role => 
+          typeof role === 'string' && 
+          (role.toLowerCase() === 'admin' || role.toLowerCase() === 'administrator')
+        );
+        
+        if (hasAdminRole) {
+          console.log('User has admin role, granting access');
+          setHasAccess(true);
+          return;
+        }
+      }
+      
+      // Fallback to standard permission check
+      const canAccess = hasPageAccess(user, 'manage-staff');
+      console.log('Access result from permission check:', canAccess);
+      setHasAccess(canAccess);
+    } catch (error) {
+      console.error('Error in access check:', error);
+      // On error, default to grant access to avoid lockouts
+      setHasAccess(true);
+    }
+  }, [user]);
+  
+  // If user doesn't have access, show access denied screen
+  if (!hasAccess) {
+    return <AccessDenied />;
+  }
+  
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
-  const [department, setDepartment] = useState('all');
   const [activeTab, setActiveTab] = useState('all');
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
@@ -60,7 +122,17 @@ export default function ManageStaffScreen() {
     try {
       const filters = {};
       if (status !== 'all') filters.status = status;
-      if (activeTab !== 'all') filters.department = activeTab;
+      
+      // Handle department filtering in a more specific way
+      if (activeTab === 'front_office') {
+        filters.department = 'front_office';
+      } else if (activeTab === 'housekeeping') {
+        filters.department = 'housekeeping';
+      } else if (activeTab === 'other') {
+        // For 'other', we'll handle filtering on the client side after fetching
+        // since the backend might not support this complex filter
+      }
+      
       if (search) filters.search = search;
       const response = await staffService.getAllStaff(1, 50, filters);
       
@@ -108,9 +180,16 @@ export default function ManageStaffScreen() {
       status === 'all' ||
       (status === 'active' && person.status === 'Active') ||
       (status === 'inactive' && person.status === 'Inactive');
-    const matchesDepartment = department === 'all' || person.department === department || person.Department === department;
-    const matchesTab = activeTab === 'all' || person.department === activeTab || person.Department === activeTab;
-    return matchesSearch && matchesStatus && matchesDepartment && matchesTab;
+    
+    // Fix the department filtering based on the active tab
+    const departmentValue = person.department || person.Department || '';
+    const matchesTab = 
+      activeTab === 'all' || 
+      (activeTab === 'front_office' && departmentValue.toLowerCase() === 'front_office') ||
+      (activeTab === 'housekeeping' && departmentValue.toLowerCase() === 'housekeeping') ||
+      (activeTab === 'other' && departmentValue.toLowerCase() !== 'front_office' && departmentValue.toLowerCase() !== 'housekeeping');
+    
+    return matchesSearch && matchesStatus && matchesTab;
   });
 
   const renderStaffCard = ({ item }) => {
@@ -128,7 +207,6 @@ export default function ManageStaffScreen() {
           <Text style={styles.staffInfo}>Start Date: {(item.startDate || item.StartDate)?.slice(0, 10)}</Text>
           <Text style={styles.staffInfo}>Email: {item.email || item.Email}</Text>
           <Text style={styles.staffInfo}>Phone: {item.phoneNumber || item.PhoneNumber}</Text>
-          <Text style={styles.staffInfo}>Salary: <Text style={{ fontWeight: 'bold', color: '#16A085' }}>{item.salary || '0'} TL</Text></Text>
         </View>
         <View style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <View style={isActive ? styles.statusActive : styles.statusInactive}>
@@ -256,13 +334,36 @@ function CreateStaffModal({ visible, onClose, onCreated }) {
   const [salary, setSalary] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [departmentModal, setDepartmentModal] = useState(false);
-  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Format the date for display
+  const formatDate = (date) => {
+    try {
+      if (!date) return '';
+      return date.toLocaleDateString();
+    } catch (e) {
+      console.error('Date formatting error:', e);
+      return '';
+    }
+  };
+
+  // Handle date change
+  const onDateChange = (event, selectedDate) => {
+    try {
+      console.log('Date selected:', selectedDate);
+      const currentDate = selectedDate || startDate;
+      setShowDatePicker(Platform.OS === 'ios'); // Only keep open on iOS
+      setStartDate(currentDate);
+    } catch (e) {
+      console.error('Date change error:', e);
+    }
+  };
+
   const handleSave = async () => {
     setError(null);
-    if (!firstName || !lastName || !department || !role || !startDate || !email || !phoneNumber || salary === '') {
+    if (!firstName || !lastName || !department || !role || !startDate || !email || !phoneNumber || !salary) {
       setError('Lütfen tüm alanları doldurun.');
       return;
     }
@@ -276,7 +377,7 @@ function CreateStaffModal({ visible, onClose, onCreated }) {
         StartDate: startDate.toISOString(),
         Email: email,
         PhoneNumber: phoneNumber,
-        Salary: Number(salary),
+        Salary: parseFloat(salary) || 0,
         IsActive: isActive,
       };
       console.log('Gönderilen veri:', staffData);
@@ -293,78 +394,133 @@ function CreateStaffModal({ visible, onClose, onCreated }) {
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContainerModern}>
+        <View style={styles.modalContainerMobile}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Create New Staff</Text>
             <TouchableOpacity onPress={onClose} style={styles.modalClose}>
               <MaterialIcons name="close" size={24} color="#3C3169" />
             </TouchableOpacity>
           </View>
-          <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+          <ScrollView contentContainerStyle={styles.modalScrollContent}>
             {/* Personal Info Card */}
             <View style={styles.modalCard}>
-              <Text style={styles.modalSectionModern}><MaterialIcons name="person" size={18} color="#6B3DC9" />  Personal Information</Text>
-              <View style={styles.modalRowModern}>
-                <View style={styles.modalInputIconBox}>
-                  <MaterialIcons name="person" size={20} color="#aaa" style={styles.modalInputIcon} />
-                  <TextInput style={styles.modalInputModern} placeholder="First Name *" value={firstName} onChangeText={setFirstName} />
-                </View>
-                <View style={styles.modalInputIconBox}>
-                  <MaterialIcons name="person" size={20} color="#aaa" style={styles.modalInputIcon} />
-                  <TextInput style={styles.modalInputModern} placeholder="Last Name *" value={lastName} onChangeText={setLastName} />
-                </View>
+              <Text style={styles.modalSectionMobile}><MaterialIcons name="person" size={18} color="#6B3DC9" />  Personal Information</Text>
+              <View style={styles.modalInputIconBox}>
+                <MaterialIcons name="person" size={20} color="#aaa" style={styles.modalInputIcon} />
+                <TextInput style={styles.modalInputMobile} placeholder="First Name *" value={firstName} onChangeText={setFirstName} />
               </View>
-              <View style={styles.modalRowModern}>
-                <View style={styles.modalInputIconBox}>
-                  <MaterialIcons name="email" size={20} color="#aaa" style={styles.modalInputIcon} />
-                  <TextInput style={styles.modalInputModern} placeholder="Email *" value={email} onChangeText={setEmail} keyboardType="email-address" />
-                </View>
-                <View style={styles.modalInputIconBox}>
-                  <MaterialIcons name="phone" size={20} color="#aaa" style={styles.modalInputIcon} />
-                  <TextInput style={styles.modalInputModern} placeholder="Phone Number *" value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" />
-                </View>
+              <View style={styles.modalInputIconBox}>
+                <MaterialIcons name="person" size={20} color="#aaa" style={styles.modalInputIcon} />
+                <TextInput style={styles.modalInputMobile} placeholder="Last Name *" value={lastName} onChangeText={setLastName} />
+              </View>
+              <View style={styles.modalInputIconBox}>
+                <MaterialIcons name="email" size={20} color="#aaa" style={styles.modalInputIcon} />
+                <TextInput style={styles.modalInputMobile} placeholder="Email *" value={email} onChangeText={setEmail} keyboardType="email-address" />
+              </View>
+              <View style={styles.modalInputIconBox}>
+                <MaterialIcons name="phone" size={20} color="#aaa" style={styles.modalInputIcon} />
+                <TextInput style={styles.modalInputMobile} placeholder="Phone Number *" value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" />
               </View>
             </View>
             {/* Employment Info Card */}
             <View style={styles.modalCard}>
-              <Text style={styles.modalSectionModern}><MaterialIcons name="work" size={18} color="#6B3DC9" />  Employment Information</Text>
-              <View style={styles.modalRowModern}>
-                {/* Department Modal Trigger */}
-                <TouchableOpacity style={styles.modalInputIconBox} onPress={() => setDepartmentModal(true)}>
-                  <MaterialIcons name={DEPARTMENTS_MODAL.find(d => d.key === department)?.icon || 'business-center'} size={20} color="#aaa" style={styles.modalInputIcon} />
-                  <Text style={[styles.modalInputModern, { color: department ? '#333' : '#aaa' }]}>{DEPARTMENTS_MODAL.find(d => d.key === department)?.label || 'Select Department *'}</Text>
-                  <MaterialIcons name={'expand-more'} size={20} color="#aaa" style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-                <View style={styles.modalInputIconBox}>
-                  <MaterialIcons name="badge" size={20} color="#aaa" style={styles.modalInputIcon} />
-                  <TextInput style={styles.modalInputModern} placeholder="Role/Position *" value={role} onChangeText={setRole} />
-                </View>
+              <Text style={styles.modalSectionMobile}><MaterialIcons name="work" size={18} color="#6B3DC9" />  Employment Information</Text>
+              {/* Department Modal Trigger */}
+              <TouchableOpacity style={styles.modalInputIconBox} onPress={() => setDepartmentModal(true)}>
+                <MaterialIcons name={DEPARTMENTS_MODAL.find(d => d.key === department)?.icon || 'business-center'} size={20} color="#aaa" style={styles.modalInputIcon} />
+                <Text style={[styles.modalInputMobile, { color: department ? '#333' : '#aaa' }]}>{DEPARTMENTS_MODAL.find(d => d.key === department)?.label || 'Select Department *'}</Text>
+                <MaterialIcons name={'expand-more'} size={20} color="#aaa" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+              <View style={styles.modalInputIconBox}>
+                <MaterialIcons name="badge" size={20} color="#aaa" style={styles.modalInputIcon} />
+                <TextInput style={styles.modalInputMobile} placeholder="Role/Position *" value={role} onChangeText={setRole} />
               </View>
-              <View style={styles.modalRowModern}>
-                <TouchableOpacity style={styles.modalInputIconBox} onPress={() => setDatePickerVisible(true)}>
-                  <MaterialIcons name="event" size={20} color="#aaa" style={styles.modalInputIcon} />
-                  <Text style={[styles.modalInputModern, { color: startDate ? '#333' : '#aaa', paddingTop: 2 }]}>{startDate ? startDate.toLocaleDateString() : 'Start Date *'}</Text>
-                </TouchableOpacity>
-                <View style={styles.modalInputIconBox}>
-                  <MaterialIcons name="attach-money" size={20} color="#aaa" style={styles.modalInputIcon} />
-                  <TextInput style={styles.modalInputModern} placeholder="Salary *" value={salary} onChangeText={setSalary} keyboardType="numeric" />
+              
+              {/* Date Picker Button */}
+              <TouchableOpacity 
+                style={styles.datePickerButton} 
+                onPress={() => {
+                  console.log('Opening date picker');
+                  setShowDatePicker(true);
+                }}
+              >
+                <MaterialIcons name="event" size={20} color="#3C3169" style={styles.modalInputIcon} />
+                <Text style={styles.datePickerText}>
+                  {formatDate(startDate) || 'Select Start Date *'}
+                </Text>
+                <MaterialIcons name="arrow-drop-down" size={24} color="#3C3169" />
+              </TouchableOpacity>
+
+              {/* Simple Date Picker - will show inline on Android and as a modal on iOS */}
+              {showDatePicker && (
+                <View style={styles.datePickerContainer}>
+                  {Platform.OS === 'android' ? (
+                    <DateTimePickerModal
+                      isVisible={showDatePicker}
+                      mode="date"
+                      display="default"
+                      onConfirm={(date) => {
+                        setStartDate(date);
+                        setShowDatePicker(false);
+                      }}
+                      onCancel={() => setShowDatePicker(false)}
+                      date={startDate}
+                    />
+                  ) : (
+                    // Fallback to alternative date selection for iOS
+                    <View style={styles.iosDatePickerContainer}>
+                      <View style={styles.iosDatePickerHeader}>
+                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                          <Text style={styles.iosDatePickerCancel}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          onPress={() => {
+                            setShowDatePicker(false);
+                          }}
+                        >
+                          <Text style={styles.iosDatePickerDone}>Done</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePickerModal
+                        isVisible={showDatePicker}
+                        mode="date"
+                        display="spinner"
+                        onConfirm={(date) => {
+                          setStartDate(date);
+                          setShowDatePicker(false);
+                        }}
+                        onCancel={() => setShowDatePicker(false)}
+                        date={startDate}
+                      />
+                    </View>
+                  )}
                 </View>
+              )}
+              
+              <View style={styles.modalInputIconBox}>
+                <MaterialIcons name="attach-money" size={20} color="#aaa" style={styles.modalInputIcon} />
+                <TextInput 
+                  style={styles.modalInputMobile} 
+                  placeholder="Salary *" 
+                  value={salary} 
+                  onChangeText={setSalary} 
+                  keyboardType="numeric" 
+                />
               </View>
-              <View style={styles.modalRowModern}>
-                <View style={styles.modalSwitchRow}>
-                  <Text style={{ fontWeight: 'bold', color: isActive ? '#16A085' : '#aaa', marginRight: 8 }}>{isActive ? 'Active' : 'Inactive'}</Text>
-                  <Switch value={isActive} onValueChange={setIsActive} trackColor={{ true: '#16A085', false: '#aaa' }} />
-                </View>
+              <View style={styles.modalSwitchRow}>
+                <Text style={{ fontWeight: 'bold', color: isActive ? '#16A085' : '#aaa', marginRight: 8 }}>{isActive ? 'Active' : 'Inactive'}</Text>
+                <Switch value={isActive} onValueChange={setIsActive} trackColor={{ true: '#16A085', false: '#aaa' }} />
               </View>
             </View>
             {error && <Text style={{ color: 'red', textAlign: 'center', marginTop: 8 }}>{error}</Text>}
-            <View style={styles.modalButtonRowModern}>
-              <TouchableOpacity style={styles.modalCancelModern} onPress={onClose}><Text style={styles.modalCancelTextModern}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.modalSaveModern} onPress={handleSave} disabled={loading}>
-                <Text style={styles.modalSaveTextModern}>{loading ? 'Saving...' : 'Save'}</Text>
+            <View style={styles.modalButtonRowMobile}>
+              <TouchableOpacity style={styles.modalCancelMobile} onPress={onClose}><Text style={styles.modalCancelTextMobile}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.modalSaveMobile} onPress={handleSave} disabled={loading}>
+                <Text style={styles.modalSaveTextMobile}>{loading ? 'Saving...' : 'Save'}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
+          
           {/* Department Modal */}
           <Modal visible={departmentModal} transparent animationType="fade">
             <TouchableOpacity style={styles.departmentModalOverlay} activeOpacity={1} onPress={() => setDepartmentModal(false)}>
@@ -378,14 +534,85 @@ function CreateStaffModal({ visible, onClose, onCreated }) {
               </View>
             </TouchableOpacity>
           </Modal>
-          {/* Date Picker Modal */}
-          <DateTimePickerModal
-            isVisible={datePickerVisible}
-            mode="date"
-            onConfirm={date => { setDatePickerVisible(false); if (date) setStartDate(date); }}
-            onCancel={() => setDatePickerVisible(false)}
-            date={startDate}
-          />
+          
+          {/* Alternative Date Picker Modal for when inline picker doesn't work */}
+          <Modal
+            visible={Platform.OS !== 'android' && showDatePicker}
+            transparent
+            animationType="slide"
+          >
+            <View style={styles.datePickerModalContainerAlt}>
+              <View style={styles.datePickerModalContentAlt}>
+                <View style={styles.datePickerHeaderAlt}>
+                  <Text style={styles.datePickerTitleAlt}>Select Date</Text>
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                    <MaterialIcons name="close" size={24} color="#666" />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.datePickerCalendarContainerAlt}>
+                  {/* Calendar UI */}
+                  <View style={styles.calendarGrid}>
+                    {/* Month selection */}
+                    <View style={styles.monthSelector}>
+                      <TouchableOpacity>
+                        <MaterialIcons name="chevron-left" size={24} color="#3C3169" />
+                      </TouchableOpacity>
+                      <Text style={styles.monthYearText}>
+                        {startDate.toLocaleString('default', { month: 'long' })} {startDate.getFullYear()}
+                      </Text>
+                      <TouchableOpacity>
+                        <MaterialIcons name="chevron-right" size={24} color="#3C3169" />
+                      </TouchableOpacity>
+                    </View>
+                    
+                    {/* Simple date grid */}
+                    <View style={styles.daysContainer}>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].map(day => (
+                        <TouchableOpacity 
+                          key={`day-${day}`}
+                          style={[
+                            styles.dayButton,
+                            startDate.getDate() === day && styles.selectedDayButton
+                          ]}
+                          onPress={() => {
+                            const newDate = new Date(startDate);
+                            newDate.setDate(day);
+                            setStartDate(newDate);
+                          }}
+                        >
+                          <Text 
+                            style={[
+                              styles.dayButtonText,
+                              startDate.getDate() === day && styles.selectedDayButtonText
+                            ]}
+                          >
+                            {day}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+                
+                <View style={styles.datePickerButtonsAlt}>
+                  <TouchableOpacity 
+                    style={styles.datePickerCancelBtnAlt} 
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Text style={styles.datePickerCancelTextAlt}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.datePickerConfirmBtnAlt} 
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Text style={styles.datePickerConfirmTextAlt}>Confirm</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+          
         </View>
       </View>
     </Modal>
@@ -435,16 +662,30 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
   };
 
   const handleStartTimeChange = (date) => {
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    setStartTime(formatTime(hours, minutes));
+    console.log('Start time selected:', date);
+    if (date) {
+      // Ensure we're getting a valid Date object
+      const timeDate = new Date(date);
+      const hours = timeDate.getHours();
+      const minutes = timeDate.getMinutes();
+      const formattedTime = formatTime(hours, minutes);
+      console.log('Formatted start time:', formattedTime);
+      setStartTime(formattedTime);
+    }
     hideStartTimePicker();
   };
 
   const handleEndTimeChange = (date) => {
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    setEndTime(formatTime(hours, minutes));
+    console.log('End time selected:', date);
+    if (date) {
+      // Ensure we're getting a valid Date object
+      const timeDate = new Date(date);
+      const hours = timeDate.getHours();
+      const minutes = timeDate.getMinutes();
+      const formattedTime = formatTime(hours, minutes);
+      console.log('Formatted end time:', formattedTime);
+      setEndTime(formattedTime);
+    }
     hideEndTimePicker();
   };
 
@@ -742,15 +983,32 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
       
       let result;
       
+      // Check if we are in edit mode or if there's already a shift for the selected day
       if (editingShiftId) {
-        // UPDATE EXISTING SHIFT
+        // EDIT MODE - Update existing shift
         console.log(`Updating shift with ID: ${editingShiftId}`);
         
         try {
-          result = await shiftService.updateShift(staff.id, editingShiftId, newShiftData);
-          console.log('Shift update result:', JSON.stringify(result, null, 2));
+          // 1. First find the existing shift to be updated
+          const existingShift = shifts.find(shift => shift.id === editingShiftId);
           
-          // Immediately update local state for UI consistency
+          if (!existingShift) {
+            console.error(`Cannot find shift with ID ${editingShiftId} in local state`);
+            throw new Error('Shift not found');
+          }
+          
+          // 2. Check if there's any actual change to avoid unnecessary API calls
+          if (existingShift.dayOfTheWeek === selectedDay && 
+              existingShift.startTime === startTime && 
+              existingShift.endTime === endTime) {
+            console.log('No changes detected in shift data, skipping update');
+            setEditingShiftId(null);
+            setLoading(false);
+            setIsApiOperationInProgress(false);
+            return;
+          }
+          
+          // 3. Immediately update UI state optimistically
           const updatedShift = {
             id: editingShiftId,
             dayOfTheWeek: selectedDay,
@@ -759,14 +1017,14 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
             staffId: parseInt(staff.id)
           };
           
-          // 1. Update the shifts array - replace old shift with updated one
+          // Update the shifts array - replace old shift with updated one
           const updatedShifts = currentShiftsCopy.map(shift => 
             shift.id === editingShiftId ? updatedShift : shift
           );
           console.log('Updated shifts after edit:', updatedShifts.length);
           setShifts(updatedShifts);
           
-          // 2. Update shifts by day
+          // Update shifts by day
           const updatedShiftsByDay = {...shiftsByDay};
           
           // First, remove the shift from its current day (which might be different)
@@ -782,13 +1040,104 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
           
           setShiftsByDay(updatedShiftsByDay);
           
+          // 4. Call API to update the shift - FIXED: Instead of updating just one shift, 
+          // send all shifts including the updated one
+          // Prepare all shifts data for POST request
+          const allShiftsData = updatedShifts.map(shift => ({
+            dayOfTheWeek: shift.dayOfTheWeek,
+            startTime: shift.startTime,
+            endTime: shift.endTime,
+            staffId: parseInt(staff.id)
+          }));
+          
+          console.log(`Sending ${allShiftsData.length} shifts with the updated shift`);
+          console.log('All shifts data:', JSON.stringify(allShiftsData, null, 2));
+          
+          // Call API with all shifts
+          result = await shiftService.addShift(staff.id, allShiftsData);
+          
+          console.log('Shift update result:', JSON.stringify(result, null, 2));
+          
+          // 5. Force UI to refresh with the updated data
+          setComponentKey(Date.now().toString());
+          
+          // 6. Reset the editing state
+          setEditingShiftId(null);
+          
+          // 7. Refresh shifts after a short delay to ensure server sync
+          setTimeout(() => {
+            fetchShifts();
+          }, 800);
+          
         } catch (error) {
           console.error('Failed to update shift:', error);
+          alert('There was an error updating the shift, but changes have been applied to the view.');
         }
-        
       } else {
-        // CREATE NEW SHIFT
-        console.log('Creating new shift');
+        // NEW SHIFT MODE - First check if there's already a shift for this day
+        console.log('Checking if there is already a shift for this day...');
+        const existingShiftForDay = shifts.find(shift => shift.dayOfTheWeek === selectedDay);
+        
+        if (existingShiftForDay) {
+          // FOUND EXISTING SHIFT FOR THIS DAY
+          console.log(`Found existing shift for ${selectedDay}, will update instead of creating new`);
+          
+          // Create an updated shift object with the existing ID but new time values
+          const updatedShift = {
+            id: existingShiftForDay.id,
+            dayOfTheWeek: selectedDay,
+            startTime: startTime,  // Use the new start time
+            endTime: endTime,      // Use the new end time
+            staffId: parseInt(staff.id)
+          };
+          
+          // Update the shifts array - replace old shift with updated one
+          const updatedShifts = currentShiftsCopy.map(shift => 
+            shift.id === existingShiftForDay.id ? updatedShift : shift
+          );
+          console.log('Updated shifts after edit:', updatedShifts.length);
+          setShifts(updatedShifts);
+          
+          // Update shifts by day
+          const updatedShiftsByDay = {...shiftsByDay};
+          
+          // Remove old shift from day
+          if (updatedShiftsByDay[selectedDay]) {
+            updatedShiftsByDay[selectedDay] = updatedShiftsByDay[selectedDay].filter(
+              shift => shift.id !== existingShiftForDay.id
+            );
+          } else {
+            updatedShiftsByDay[selectedDay] = [];
+          }
+          
+          // Add updated shift to day
+          updatedShiftsByDay[selectedDay].push(updatedShift);
+          setShiftsByDay(updatedShiftsByDay);
+          
+          // Prepare all shifts data for API call
+          const allShiftsData = updatedShifts.map(shift => ({
+            dayOfTheWeek: shift.dayOfTheWeek,
+            startTime: shift.startTime,
+            endTime: shift.endTime,
+            staffId: parseInt(staff.id)
+          }));
+          
+          console.log(`Sending ${allShiftsData.length} shifts with the updated shift`);
+          
+          // Call API with all shifts
+          result = await shiftService.addShift(staff.id, allShiftsData);
+          console.log('Shift update result:', JSON.stringify(result, null, 2));
+          
+          // Force UI update
+          setComponentKey(Date.now().toString());
+          
+          setTimeout(() => {
+            fetchShifts();
+          }, 800);
+          
+        } else {
+          // NO EXISTING SHIFT FOR THIS DAY - Create a new one
+          console.log('No existing shift for this day, creating new shift');
         
         try {
           // Check if we have existing shifts for other days
@@ -910,6 +1259,7 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
           setShiftsByDay(updatedShiftsByDay);
           
           console.log(`Added temporary shift with ID: ${tempId} to UI state despite API error`);
+          }
         }
       }
       
@@ -933,6 +1283,29 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
       return;
     }
     
+    // Show confirmation before deleting
+    if (Platform.OS === 'web') {
+      if (!confirm('Are you sure you want to delete this shift?')) {
+        return;
+      }
+    } else {
+      // Use Alert component for mobile platforms
+      Alert.alert(
+        "Delete Shift",
+        "Are you sure you want to delete this shift?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: () => performDeleteShift(shiftId) }
+        ]
+      );
+      return;
+    }
+    
+    // If web platform or Alert not available, continue with delete
+    await performDeleteShift(shiftId);
+  };
+  
+  const performDeleteShift = async (shiftId) => {
     console.log(`Deleting shift ${shiftId} for staff ${staff.id}`);
     
     setLoading(true);
@@ -943,14 +1316,14 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
       const shiftToDelete = shifts.find(shift => shift.id === shiftId);
       const dayOfWeek = shiftToDelete?.dayOfTheWeek;
       
+      if (!shiftToDelete) {
+        console.error(`Shift ID ${shiftId} not found in local state`);
+        return;
+      }
+      
       console.log(`Found shift to delete: ID=${shiftId}, Day=${dayOfWeek}`);
       
-      // 2. Call API to delete the shift
-      const result = await shiftService.deleteShift(staff.id, shiftId);
-      console.log(`Shift ${shiftId} deletion result:`, result);
-      
-      // 3. Even if API succeeds, immediately update our local state
-      // Remove from shifts array
+      // 2. Immediately update UI state optimistically
       const updatedShifts = shifts.filter(shift => shift.id !== shiftId);
       setShifts(updatedShifts);
       
@@ -965,6 +1338,22 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
         }
       }
       
+      // 3. Instead of calling delete API (which doesn't exist), send all remaining shifts
+      // Prepare remaining shifts data for POST request
+      const remainingShifts = updatedShifts.map(shift => ({
+        dayOfTheWeek: shift.dayOfTheWeek,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        staffId: parseInt(staff.id)
+      }));
+      
+      console.log(`Sending ${remainingShifts.length} remaining shifts after removing shift ${shiftId}`);
+      console.log('Remaining shifts data:', JSON.stringify(remainingShifts, null, 2));
+      
+      // Call API with all remaining shifts
+      const result = await shiftService.addShift(staff.id, remainingShifts);
+      console.log(`Shift update after deletion result:`, result);
+      
       // 4. Force UI update
       setComponentKey(Date.now().toString());
       
@@ -973,29 +1362,13 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
       // 5. Refresh shifts after a short delay to ensure server sync
       setTimeout(() => {
         fetchShifts();
-      }, 500);
+      }, 800);
       
     } catch (err) {
       console.error('Error deleting shift:', err);
       
-      // Even if there's an error, update the UI
-      const updatedShifts = shifts.filter(shift => shift.id !== shiftId);
-      setShifts(updatedShifts);
-      
-      // Update shifts by day
-      const shiftToDelete = shifts.find(shift => shift.id === shiftId);
-      if (shiftToDelete && shiftToDelete.dayOfTheWeek) {
-        const updatedShiftsByDay = {...shiftsByDay};
-        if (updatedShiftsByDay[shiftToDelete.dayOfTheWeek]) {
-          updatedShiftsByDay[shiftToDelete.dayOfTheWeek] = updatedShiftsByDay[shiftToDelete.dayOfTheWeek].filter(
-            shift => shift.id !== shiftId
-          );
-          setShiftsByDay(updatedShiftsByDay);
-        }
-      }
-      
-      // Force UI update
-      setComponentKey(Date.now().toString());
+      // Even if there's an error, keep UI updated (optimistic update)
+      alert('There was an error contacting the server, but the shift has been removed from the view.');
     } finally {
       setLoading(false);
       setIsApiOperationInProgress(false);
@@ -1003,6 +1376,12 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
   };
 
   const handleEditShift = (shift) => {
+    if (!shift || !shift.id) {
+      console.error('Cannot edit shift: invalid shift data');
+      return;
+    }
+    
+    console.log('Editing shift:', shift);
     setSelectedDay(shift.dayOfTheWeek);
     setStartTime(shift.startTime);
     setEndTime(shift.endTime);
@@ -1037,10 +1416,6 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
       const firstName = nameParts[0] || form.firstName || '';
       const lastName = nameParts.slice(1).join(' ') || form.lastName || '';
 
-      // Maaş değerini kontrol et
-      const salaryValue = form.salary || form.Salary || 0;
-      console.log('Güncelleme için kullanılan maaş değeri:', salaryValue);
-
       // Backend'in beklediği alan adlarıyla veri oluştur
       const updatedStaff = {
         id: form.id,
@@ -1051,7 +1426,7 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
         StartDate: form.startDate || form.StartDate,
         Email: form.email || form.Email,
         PhoneNumber: form.phoneNumber || form.PhoneNumber,
-        Salary: Number(salaryValue),
+        Salary: 0, // Maaş bilgisi 0 olarak ayarlandı
         IsActive: form.status === 'Active'
       };
       
@@ -1177,21 +1552,6 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
                   <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Department:</Text>{editMode ? <TextInput value={form.department} onChangeText={v => handleChange('department', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.department}</Text>}</View>
                   <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Start Date:</Text>{editMode ? <TextInput value={form.startDate} onChangeText={v => handleChange('startDate', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{(staff.startDate || '').slice(0, 10)}</Text>}</View>
                   <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Position/Role:</Text>{editMode ? <TextInput value={form.position || form.role} onChangeText={v => handleChange('position', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.position || staff.role}</Text>}</View>
-                  <View style={styles.detailsRow}>
-                    <Text style={styles.detailsLabel}>Salary:</Text>
-                    {editMode ? (
-                      <TextInput 
-                        value={String(form.salary || '')} 
-                        onChangeText={v => handleChange('salary', v)} 
-                        style={styles.detailsInput} 
-                        keyboardType="numeric" 
-                      />
-                    ) : (
-                      <Text style={[styles.detailsValue, { fontWeight: 'bold', color: '#16A085' }]}>
-                        {staff.salary ? `${staff.salary} TL` : '0 TL'}
-                      </Text>
-                    )}
-                  </View>
                 </View>
                 <View style={styles.detailsButtonRow}>
                   {editMode ? (
@@ -1268,7 +1628,11 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
                         <Text style={styles.shiftFormLabel}>Start Time</Text>
                         <TouchableOpacity 
                           style={styles.shiftTimeInput}
-                          onPress={showStartTimePicker}
+                          onPress={() => {
+                            console.log("Opening start time picker");
+                            setStartTimePicker(true);
+                          }}
+                          activeOpacity={0.6}
                         >
                           <Text style={{fontSize: 16}}>{startTime}</Text>
                           <MaterialIcons name="schedule" size={20} color="#3C3169" />
@@ -1279,7 +1643,11 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
                         <Text style={styles.shiftFormLabel}>End Time</Text>
                         <TouchableOpacity 
                           style={styles.shiftTimeInput}
-                          onPress={showEndTimePicker}
+                          onPress={() => {
+                            console.log("Opening end time picker");
+                            setEndTimePicker(true);
+                          }}
+                          activeOpacity={0.6}
                         >
                           <Text style={{fontSize: 16}}>{endTime}</Text>
                           <MaterialIcons name="schedule" size={20} color="#3C3169" />
@@ -1312,23 +1680,215 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
                 </View>
                 
                 {/* Zaman Seçiciler */}
-                <DateTimePickerModal
-                  isVisible={startTimePicker}
-                  mode="time"
-                  onConfirm={handleStartTimeChange}
-                  onCancel={hideStartTimePicker}
-                  is24Hour={true}
-                  date={new Date(`2000-01-01T${startTime}`)}
-                />
+                {/* Custom Time Pickers */}
                 
-                <DateTimePickerModal
-                  isVisible={endTimePicker}
-                  mode="time"
-                  onConfirm={handleEndTimeChange}
-                  onCancel={hideEndTimePicker}
-                  is24Hour={true}
-                  date={new Date(`2000-01-01T${endTime}`)}
-                />
+                {/* Start Time Picker */}
+                <Modal
+                  visible={startTimePicker}
+                  transparent
+                  animationType="fade"
+                >
+                  <View style={styles.timeModalOverlay}>
+                    <View style={styles.timePickerWrapper}>
+                      <View style={styles.timePickerHeader}>
+                        <Text style={styles.timePickerTitle}>Başlangıç Saati</Text>
+                        <TouchableOpacity onPress={hideStartTimePicker}>
+                          <MaterialIcons name="close" size={24} color="#666" />
+                        </TouchableOpacity>
+                      </View>
+                      
+                      <View style={styles.timePickerGrid}>
+                        {/* Saat ve dakika seçimi */}
+                        <View style={styles.timePickerColumns}>
+                          <View style={styles.timePickerColumnHeader}>
+                            <Text style={styles.timePickerColumnLabel}>Saat</Text>
+                          </View>
+                          <ScrollView style={styles.timePickerScroll}>
+                            {['06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22'].map(hour => {
+                              const currentHour = startTime.split(':')[0];
+                              return (
+                                <TouchableOpacity 
+                                  key={`hour-${hour}`}
+                                  style={[
+                                    styles.timePickerGridItem,
+                                    currentHour === hour && styles.timePickerGridItemSelected
+                                  ]}
+                                  onPress={() => {
+                                    const minutes = startTime.split(':')[1] || '00';
+                                    setStartTime(`${hour}:${minutes}`);
+                  }}
+                                >
+                                  <Text style={[
+                                    styles.timePickerGridItemText,
+                                    currentHour === hour && styles.timePickerGridItemTextSelected
+                                  ]}>
+                                    {hour}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                        
+                        <View style={styles.timePickerDivider} />
+                        
+                        <View style={styles.timePickerColumns}>
+                          <View style={styles.timePickerColumnHeader}>
+                            <Text style={styles.timePickerColumnLabel}>Dakika</Text>
+                          </View>
+                          <ScrollView style={styles.timePickerScroll}>
+                            {['00', '15', '30', '45'].map(minute => {
+                              const currentMinute = startTime.split(':')[1] || '00';
+                              return (
+                                <TouchableOpacity 
+                                  key={`minute-${minute}`}
+                                  style={[
+                                    styles.timePickerGridItem,
+                                    currentMinute === minute && styles.timePickerGridItemSelected
+                                  ]}
+                                  onPress={() => {
+                                    const hour = startTime.split(':')[0] || '09';
+                                    setStartTime(`${hour}:${minute}`);
+                                  }}
+                                >
+                                  <Text style={[
+                                    styles.timePickerGridItemText,
+                                    currentMinute === minute && styles.timePickerGridItemTextSelected
+                                  ]}>
+                                    {minute}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                      </View>
+                
+                      <View style={styles.timePickerPreview}>
+                        <Text style={styles.timePickerPreviewText}>{startTime}</Text>
+                      </View>
+                      
+                      <View style={styles.timePickerFooter}>
+                        <TouchableOpacity 
+                          style={styles.timePickerCancelBtn}
+                          onPress={hideStartTimePicker}
+                        >
+                          <Text style={styles.timePickerCancelText}>İptal</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.timePickerConfirmBtn}
+                          onPress={hideStartTimePicker}
+                        >
+                          <Text style={styles.timePickerConfirmText}>Tamam</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </Modal>
+                
+                {/* End Time Picker */}
+                <Modal
+                  visible={endTimePicker}
+                  transparent
+                  animationType="fade"
+                >
+                  <View style={styles.timeModalOverlay}>
+                    <View style={styles.timePickerWrapper}>
+                      <View style={styles.timePickerHeader}>
+                        <Text style={styles.timePickerTitle}>Bitiş Saati</Text>
+                        <TouchableOpacity onPress={hideEndTimePicker}>
+                          <MaterialIcons name="close" size={24} color="#666" />
+                        </TouchableOpacity>
+                      </View>
+                      
+                      <View style={styles.timePickerGrid}>
+                        {/* Saat ve dakika seçimi */}
+                        <View style={styles.timePickerColumns}>
+                          <View style={styles.timePickerColumnHeader}>
+                            <Text style={styles.timePickerColumnLabel}>Saat</Text>
+                          </View>
+                          <ScrollView style={styles.timePickerScroll}>
+                            {['06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22'].map(hour => {
+                              const currentHour = endTime.split(':')[0];
+                              return (
+                                <TouchableOpacity 
+                                  key={`hour-${hour}`}
+                                  style={[
+                                    styles.timePickerGridItem,
+                                    currentHour === hour && styles.timePickerGridItemSelected
+                                  ]}
+                                  onPress={() => {
+                                    const minutes = endTime.split(':')[1] || '00';
+                                    setEndTime(`${hour}:${minutes}`);
+                                  }}
+                                >
+                                  <Text style={[
+                                    styles.timePickerGridItemText,
+                                    currentHour === hour && styles.timePickerGridItemTextSelected
+                                  ]}>
+                                    {hour}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                        
+                        <View style={styles.timePickerDivider} />
+                        
+                        <View style={styles.timePickerColumns}>
+                          <View style={styles.timePickerColumnHeader}>
+                            <Text style={styles.timePickerColumnLabel}>Dakika</Text>
+                          </View>
+                          <ScrollView style={styles.timePickerScroll}>
+                            {['00', '15', '30', '45'].map(minute => {
+                              const currentMinute = endTime.split(':')[1] || '00';
+                              return (
+                                <TouchableOpacity 
+                                  key={`minute-${minute}`}
+                                  style={[
+                                    styles.timePickerGridItem,
+                                    currentMinute === minute && styles.timePickerGridItemSelected
+                                  ]}
+                                  onPress={() => {
+                                    const hour = endTime.split(':')[0] || '17';
+                                    setEndTime(`${hour}:${minute}`);
+                                  }}
+                                >
+                                  <Text style={[
+                                    styles.timePickerGridItemText,
+                                    currentMinute === minute && styles.timePickerGridItemTextSelected
+                                  ]}>
+                                    {minute}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.timePickerPreview}>
+                        <Text style={styles.timePickerPreviewText}>{endTime}</Text>
+                      </View>
+                      
+                      <View style={styles.timePickerFooter}>
+                        <TouchableOpacity 
+                          style={styles.timePickerCancelBtn}
+                          onPress={hideEndTimePicker}
+                        >
+                          <Text style={styles.timePickerCancelText}>İptal</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.timePickerConfirmBtn}
+                          onPress={hideEndTimePicker}
+                        >
+                          <Text style={styles.timePickerConfirmText}>Tamam</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </Modal>
                 
                 {/* Weekly Schedule Display - Grid layout matching web version */}
                 <View style={styles.shiftCard}>
@@ -1554,7 +2114,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#3C3169',
+    backgroundColor: '#7736CE',
     paddingTop: 15,
     paddingBottom: 15,
     paddingHorizontal: 15,
@@ -1747,12 +2307,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContainerModern: {
+  modalContainerMobile: {
     backgroundColor: 'white',
     borderRadius: 20,
-    padding: 20,
-    width: '80%',
-    maxHeight: '80%',
+    padding: 16,
+    width: '94%',
+    maxHeight: '90%',
+  },
+  modalScrollContent: {
+    paddingBottom: 20,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1774,15 +2337,10 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  modalSectionModern: {
-    fontSize: 18,
+  modalSectionMobile: {
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
-  },
-  modalRowModern: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 10,
   },
   modalInputIconBox: {
@@ -1793,36 +2351,47 @@ const styles = StyleSheet.create({
   modalInputIcon: {
     marginRight: 7,
   },
-  modalInputModern: {
+  modalInputMobile: {
     flex: 1,
-    fontSize: 17,
+    fontSize: 16,
     color: '#333',
     paddingVertical: 4,
   },
-  modalButtonRowModern: {
+  modalButtonRowMobile: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 10,
   },
-  modalCancelModern: {
+  modalCancelMobile: {
     backgroundColor: '#aaa',
     borderRadius: 8,
     padding: 12,
+    flex: 1,
+    marginRight: 8,
+    alignItems: 'center',
   },
-  modalCancelTextModern: {
+  modalCancelTextMobile: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 17,
+    fontSize: 16,
   },
-  modalSaveModern: {
+  modalSaveMobile: {
     backgroundColor: '#16A085',
     borderRadius: 8,
     padding: 12,
+    flex: 1,
+    alignItems: 'center',
   },
-  modalSaveTextModern: {
+  modalSaveTextMobile: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 17,
+    fontSize: 16,
+  },
+  modalSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
   },
   departmentModalOverlay: {
     flex: 1,
@@ -2330,5 +2899,282 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     marginLeft: 5,
+  },
+  timeModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timePickerWrapper: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  timePickerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#3C3169',
+  },
+  timePickerContent: {
+    marginVertical: 15,
+  },
+  timePickerScrollView: {
+    maxHeight: 300,
+  },
+  timePickerFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  timePickerCancelBtn: {
+    backgroundColor: '#ccc',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  timePickerCancelText: {
+    color: '#333',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  timePickerOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: 'white',
+  },
+  timePickerOptionSelected: {
+    backgroundColor: '#f0f5ff',
+  },
+  timePickerOptionText: {
+    fontSize: 16,
+    color: '#3C3169',
+  },
+  timePickerOptionTextSelected: {
+    fontWeight: 'bold',
+    color: '#3C3169',
+  },
+  timePickerGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    height: 280,
+  },
+  timePickerColumns: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  timePickerColumnHeader: {
+    marginBottom: 10,
+    alignItems: 'center',
+    padding: 5,
+  },
+  timePickerColumnLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3C3169',
+  },
+  timePickerScroll: {
+    flex: 1,
+  },
+  timePickerGridItem: {
+    padding: 15,
+    marginVertical: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    marginHorizontal: 5,
+  },
+  timePickerGridItemSelected: {
+    backgroundColor: '#e0f2f1',
+    borderColor: '#16A085',
+    borderWidth: 2,
+  },
+  timePickerGridItemText: {
+    fontSize: 18,
+    color: '#3C3169',
+  },
+  timePickerGridItemTextSelected: {
+    fontWeight: 'bold',
+    color: '#16A085',
+  },
+  timePickerDivider: {
+    width: 1,
+    backgroundColor: '#ddd',
+    marginHorizontal: 5,
+  },
+  timePickerPreview: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  timePickerPreviewText: {
+    fontSize: 16,
+    color: '#3C3169',
+  },
+  timePickerConfirmBtn: {
+    backgroundColor: '#16A085',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  timePickerConfirmText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8e8f8',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#d0d0e0',
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  datePickerContainer: {
+    marginBottom: 10,
+  },
+  iosDatePickerContainer: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  iosDatePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  iosDatePickerCancel: {
+    color: '#3C3169',
+    fontSize: 16,
+  },
+  iosDatePickerDone: {
+    color: '#16A085',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  // Alternative date picker styles
+  datePickerModalContainerAlt: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  datePickerModalContentAlt: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 16,
+    width: '90%',
+    maxWidth: 350,
+  },
+  datePickerHeaderAlt: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    marginBottom: 15,
+  },
+  datePickerTitleAlt: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#3C3169',
+  },
+  datePickerCalendarContainerAlt: {
+    paddingVertical: 10,
+  },
+  calendarGrid: {
+    marginVertical: 10,
+  },
+  monthSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  monthYearText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3C3169',
+  },
+  daysContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  dayButton: {
+    width: '14.28%',
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 5,
+  },
+  selectedDayButton: {
+    backgroundColor: '#3C3169',
+    borderRadius: 20,
+  },
+  dayButtonText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  selectedDayButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  datePickerButtonsAlt: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 15,
+  },
+  datePickerCancelBtnAlt: {
+    backgroundColor: '#f2f2f2',
+    borderRadius: 8,
+    padding: 12,
+    flex: 1,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+  datePickerCancelTextAlt: {
+    color: '#666',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  datePickerConfirmBtnAlt: {
+    backgroundColor: '#3C3169',
+    borderRadius: 8,
+    padding: 12,
+    flex: 1,
+    alignItems: 'center',
+  },
+  datePickerConfirmTextAlt: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 }); 

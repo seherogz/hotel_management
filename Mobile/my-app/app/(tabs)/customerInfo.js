@@ -17,10 +17,28 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { customerService } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { hasPageAccess } from '@/services/roleService';
 
 export default function CustomerInfoScreen() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  
+  // Check for role-based access control
+  useEffect(() => {
+    if (!user) return;
+    
+    // Check if user has permission to access this page
+    const canAccess = hasPageAccess(user, 'customerInfo');
+    
+    if (!canAccess) {
+      console.log('User does not have permission to access Customer Info');
+      router.push({
+        pathname: '/access-denied',
+        params: { returnPath: '/(tabs)', page: 'Customer Info' }
+      });
+    }
+  }, [user, router]);
+  
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

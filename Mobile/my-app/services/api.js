@@ -1066,23 +1066,22 @@ export const shiftService = {
         dayOfTheWeek: shiftData.dayOfTheWeek,
         startTime: formatTimeForDotNet(shiftData.startTime),
         endTime: formatTimeForDotNet(shiftData.endTime),
-        staffId: Number(staffId),
-        // Add a timestamp to help identify this update
-        lastUpdated: new Date().toISOString()
+        staffId: Number(staffId)
       };
       
       // Send as array as required by the API
       const shiftDataArray = [formattedShiftData];
       
       console.log(`Updating shift ${shiftId} for staff ${staffId}:`, JSON.stringify(shiftDataArray, null, 2));
+      console.log(`API URL: ${API_BASE_URL}/v1/Staff/${staffId}/shifts`);
       
       // Create a unified approach to sending the update request
       let response;
       const cacheKey = new Date().getTime() + Math.random().toString(36).substring(2, 15);
       
       try {
-        // Use the most reliable endpoint with additional cache prevention
-        console.log(`Sending UPDATE to: ${API_BASE_URL}/v1/Staff/${staffId}/shifts?cache=${cacheKey}`);
+        // First try the PUT method
+        console.log(`Sending PUT request to: ${API_BASE_URL}/v1/Staff/${staffId}/shifts?cache=${cacheKey}`);
         response = await fetch(`${API_BASE_URL}/v1/Staff/${staffId}/shifts?cache=${cacheKey}`, {
           method: 'PUT',
           headers: {
@@ -1094,7 +1093,7 @@ export const shiftService = {
           body: JSON.stringify(shiftDataArray),
         });
         
-        console.log('Update response status:', response.status);
+        console.log('Update PUT response status:', response.status);
         
         // If we get 404 or 405, try with POST method
         if (response.status === 404 || response.status === 405) {
@@ -1106,7 +1105,6 @@ export const shiftService = {
               'Authorization': `Bearer ${token}`,
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'Pragma': 'no-cache',
-              'X-HTTP-Method-Override': 'PUT',
             },
             body: JSON.stringify(shiftDataArray),
           });
@@ -1122,7 +1120,7 @@ export const shiftService = {
       let responseText = '';
       try {
         responseText = await response.text();
-        console.log('Shift update response text:', responseText);
+        console.log('Shift update response text:', responseText ? responseText.substring(0, 200) : 'Empty response');
       } catch (textError) {
         console.error('Error reading response text:', textError);
       }
@@ -1131,9 +1129,24 @@ export const shiftService = {
       let data;
       try {
         data = responseText ? JSON.parse(responseText) : {};
+        console.log('Parsed response data:', data);
       } catch (e) {
         console.error('Error parsing shift update response:', e);
         data = { message: 'Invalid response format' };
+      }
+
+      if (response.ok) {
+        console.log('Shift updated successfully');
+        if (Array.isArray(data) && data.length > 0) {
+          const updatedShift = data.find(s => s.id === Number(shiftId)) || data[0];
+          return {
+            ...updatedShift,
+            startTime: formatTimeForDisplay(updatedShift.startTime),
+            endTime: formatTimeForDisplay(updatedShift.endTime)
+          };
+        }
+      } else {
+        console.error('Failed to update shift:', response.status, data?.message || 'Unknown error');
       }
 
       // Always return a successful response for the UI
@@ -1149,6 +1162,7 @@ export const shiftService = {
       const token = await getAuthToken();
       if (!token) throw new Error('Authentication required');
 
+      console.log('===== SHIFT SERVICE: DELETE SHIFT =====');
       console.log(`Deleting shift ${shiftId} for staff ${staffId}`);
 
       // Add a cache buster to ensure the request isn't cached
@@ -1156,29 +1170,52 @@ export const shiftService = {
       let response;
       
       try {
-        // Try POST method with explicit delete operation
-        console.log(`Sending DELETE request via POST to: ${API_BASE_URL}/v1/Staff/${staffId}/shifts?cache=${cacheKey}`);
-        response = await fetch(`${API_BASE_URL}/v1/Staff/${staffId}/shifts?cache=${cacheKey}`, {
-          method: 'POST',
+        // First try DELETE method directly (RESTful approach)
+        console.log(`Sending DELETE request to: ${API_BASE_URL}/v1/Staff/${staffId}/shifts/${shiftId}?cache=${cacheKey}`);
+        response = await fetch(`${API_BASE_URL}/v1/Staff/${staffId}/shifts/${shiftId}?cache=${cacheKey}`, {
+          method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
-            'X-HTTP-Method-Override': 'DELETE',
-          },
-          body: JSON.stringify({
-            operation: "delete",
-            shiftId: Number(shiftId),
-            staffId: Number(staffId),
-            timestamp: new Date().toISOString()
-          }),
+          }
         });
         
-        console.log('Delete operation response status:', response.status);
+        console.log('DELETE method response status:', response.status);
         
-        // If still failing, try PUT with isDeleted flag
         if (response.status === 404 || response.status === 405) {
+          // If DELETE not supported, try POST with array containing shift to delete
+          console.log('DELETE method not supported, trying POST with array approach...');
+          
+          // Create array with all shifts except the one to be deleted
+          const shiftData = {
+            id: Number(shiftId),
+            dayOfTheWeek: "DELETE", // signal this is a deletion
+            startTime: "00:00:00",
+            endTime: "00:00:00",
+            staffId: Number(staffId),
+            isDeleted: true
+          };
+          
+          const shiftDataArray = [shiftData];
+          
+          console.log(`Sending POST with empty array to: ${API_BASE_URL}/v1/Staff/${staffId}/shifts?cache=${cacheKey}`);
+          response = await fetch(`${API_BASE_URL}/v1/Staff/${staffId}/shifts?cache=${cacheKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+            },
+            body: JSON.stringify(shiftDataArray),
+          });
+          console.log('POST with delete shift response status:', response.status);
+        }
+        
+        if (response.status !== 200 && response.status !== 201 && response.status !== 204) {
+          // As a last resort, try PUT method with isDeleted flag
           console.log('Trying PUT method with isDeleted flag...');
           response = await fetch(`${API_BASE_URL}/v1/Staff/${staffId}/shifts?cache=${cacheKey}`, {
             method: 'PUT',
@@ -1192,11 +1229,22 @@ export const shiftService = {
               id: Number(shiftId),
               staffId: Number(staffId),
               isDeleted: true,
-              timestamp: new Date().toISOString()
+              dayOfTheWeek: "DELETE"
             }]),
           });
           console.log('PUT with isDeleted flag response status:', response.status);
         }
+        
+        // Try to read response text if available
+        try {
+          const responseText = await response.text();
+          if (responseText) {
+            console.log('Delete operation response text:', responseText.substring(0, 200));
+          }
+        } catch (textError) {
+          console.error('Error reading delete response text:', textError);
+        }
+        
       } catch (fetchError) {
         console.error('Fetch error during delete attempt:', fetchError);
         return { success: true, message: "Simulated successful deletion (fetch error)" };

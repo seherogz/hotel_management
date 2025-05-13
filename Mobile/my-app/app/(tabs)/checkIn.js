@@ -8,6 +8,9 @@ import { format, isValid } from 'date-fns';
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../../context/AuthContext';
+import { hasPageAccess } from '../../services/roleService';
+import { useRouter } from 'expo-router';
 
 function formatDate(date) {
   if (!date) return '';
@@ -34,6 +37,8 @@ function getToday() {
 const PAGE_SIZE = 20;
 
 export default function CheckInScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [allCheckIns, setAllCheckIns] = useState([]); // API'den gelen ham veri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,6 +49,22 @@ export default function CheckInScreen() {
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [processingId, setProcessingId] = useState(null); // İşlem yapılan rezervasyon ID'sini takip etmek için
+
+  // Check for role-based access control
+  useEffect(() => {
+    if (!user) return;
+    
+    // Check if user has permission to access this page
+    const canAccess = hasPageAccess(user, 'checkIn');
+    
+    if (!canAccess) {
+      console.log('User does not have permission to access Check-In');
+      router.push({
+        pathname: '/access-denied',
+        params: { returnPath: '/(tabs)', page: 'Check-In' }
+      });
+    }
+  }, [user, router]);
 
   // API'den sadece tarih, sayfa ve pageSize ile veri çek
   const fetchCheckIns = async (params = {}) => {
