@@ -176,10 +176,14 @@ export default function ManageStaffScreen() {
 
   const filteredStaff = staff.filter((person) => {
     const matchesSearch = (person.firstName && person.lastName ? `${person.firstName} ${person.lastName}` : person.name || '').toLowerCase().includes(search.toLowerCase());
+    
+    // İsActive kontrolünü normalleştir - IsActive veya status alanlarından hangisi varsa kullan
+    const isActive = person.IsActive !== undefined ? person.IsActive : person.status === 'Active';
+    
     const matchesStatus =
       status === 'all' ||
-      (status === 'active' && person.status === 'Active') ||
-      (status === 'inactive' && person.status === 'Inactive');
+      (status === 'active' && isActive) ||
+      (status === 'inactive' && !isActive);
     
     // Fix the department filtering based on the active tab
     const departmentValue = person.department || person.Department || '';
@@ -193,7 +197,8 @@ export default function ManageStaffScreen() {
   });
 
   const renderStaffCard = ({ item }) => {
-    const isActive = item.status === 'Active';
+    // İsActive kontrolünü normalleştir
+    const isActive = item.IsActive !== undefined ? item.IsActive : item.status === 'Active';
     console.log('Kart verisi:', item);
     return (
       <View style={styles.card}>
@@ -721,7 +726,7 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
         position: staff.position || staff.role || staff.Role || '',
         startDate: staff.startDate || staff.StartDate || '',
         salary: staff.salary || staff.Salary || 0,
-        status: staff.status || (staff.IsActive ? 'Active' : 'Inactive')
+        status: staff.IsActive !== undefined ? (staff.IsActive ? 'Active' : 'Inactive') : (staff.status || 'Active')
       };
       console.log('Normalized form data:', formData);
       setForm(formData);
@@ -1532,8 +1537,8 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
                     <Text style={styles.detailsAvatarText}>{(staff.name ? staff.name.split(' ').map(n => n[0]).join('') : (staff.firstName && staff.lastName ? `${staff.firstName[0]}${staff.lastName[0]}` : '')).toLowerCase()}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-                    <View style={staff.status === 'Active' ? styles.statusActive : styles.statusInactive}>
-                      <Text style={styles.statusText}>{staff.status === 'Active' ? 'Active' : 'Inactive'}</Text>
+                    <View style={staff.IsActive !== undefined ? (staff.IsActive ? styles.statusActive : styles.statusInactive) : (staff.status === 'Active' ? styles.statusActive : styles.statusInactive)}>
+                      <Text style={styles.statusText}>{staff.IsActive !== undefined ? (staff.IsActive ? 'Active' : 'Inactive') : (staff.status === 'Active' ? 'Active' : 'Inactive')}</Text>
                     </View>
                     <Text style={styles.detailsName}>{staff.name || `${staff.firstName || ''} ${staff.lastName || ''}`}</Text>
                   </View>
@@ -1546,6 +1551,21 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
                   <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Staff ID:</Text><Text style={styles.detailsValue}>{staff.id}</Text></View>
                   <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Email:</Text>{editMode ? <TextInput value={form.email} onChangeText={v => handleChange('email', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.email}</Text>}</View>
                   <View style={styles.detailsRow}><Text style={styles.detailsLabel}>Phone:</Text>{editMode ? <TextInput value={form.phoneNumber} onChangeText={v => handleChange('phoneNumber', v)} style={styles.detailsInput} /> : <Text style={styles.detailsValue}>{staff.phoneNumber}</Text>}</View>
+                  {editMode && (
+                    <View style={styles.detailsRow}>
+                      <Text style={styles.detailsLabel}>Status:</Text>
+                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <Text style={{ color: form.status === 'Active' ? '#16A085' : '#aaa', marginRight: 8 }}>
+                          {form.status === 'Active' ? 'Active' : 'Inactive'}
+                        </Text>
+                        <Switch 
+                          value={form.status === 'Active'} 
+                          onValueChange={(value) => handleChange('status', value ? 'Active' : 'Inactive')}
+                          trackColor={{ true: '#16A085', false: '#aaa' }}
+                        />
+                      </View>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.detailsCard}>
                   <Text style={styles.detailsSection}><MaterialIcons name="work" size={20} color="#6B3DC9" />  Employment Information</Text>
