@@ -1076,7 +1076,7 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
           
         } catch (error) {
           console.error('Failed to update shift:', error);
-          alert('There was an error updating the shift, but changes have been applied to the view.');
+          // No error alert needed
         }
       } else {
         // NEW SHIFT MODE - First check if there's already a shift for this day
@@ -1373,7 +1373,7 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
       console.error('Error deleting shift:', err);
       
       // Even if there's an error, keep UI updated (optimistic update)
-      alert('There was an error contacting the server, but the shift has been removed from the view.');
+      // No error alert needed
     } finally {
       setLoading(false);
       setIsApiOperationInProgress(false);
@@ -1524,7 +1524,7 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
               onPress={() => setActiveTab('shift_schedule')}
             >
               <MaterialIcons name="schedule" size={20} color="#3C3169" />
-              <Text style={styles.staffTabText}>Current Shift Schedule</Text>
+              <Text style={[styles.staffTabText, {fontSize: 13}]}>Shift Schedule</Text>
             </TouchableOpacity>
           </View>
           
@@ -1617,9 +1617,10 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
             {activeTab === 'shift_schedule' && (
               <>
                 <View style={styles.shiftCard}>
-                  <Text style={styles.shiftSectionTitle}>
-                    <MaterialIcons name="schedule" size={22} color="#6B3DC9" /> Current Shift Schedule
-                  </Text>
+                  <View style={styles.shiftTitleContainer}>
+                    <MaterialIcons name="schedule" size={22} color="#6B3DC9" />
+                    <Text style={styles.shiftSectionTitle}>Current Shift Schedule</Text>
+                  </View>
                   
                   {/* Add/Update Shift Section - Updated UI */}
                   <View style={styles.addShiftContainer}>
@@ -1629,74 +1630,149 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
                     </Text>
                     
                     <View style={styles.shiftFormRow}>
-                      <View style={styles.shiftFormGroup}>
-                        <Text style={styles.shiftFormLabel}>Day</Text>
-                        <TouchableOpacity 
-                          style={styles.shiftSelect}
-                          onPress={() => {
-                            setDayPickerVisible(true);
-                          }}
-                        >
-                          <Text style={styles.shiftSelectText}>{selectedDay}</Text>
-                          <MaterialIcons name="arrow-drop-down" size={24} color="#3C3169" />
-                        </TouchableOpacity>
-                      </View>
+                      <Text style={styles.shiftFormLabel}>Day</Text>
+                      <TouchableOpacity 
+                        style={styles.shiftSelect}
+                        onPress={() => {
+                          setDayPickerVisible(true);
+                        }}
+                      >
+                        <Text style={styles.shiftSelectText}>{selectedDay}</Text>
+                        <MaterialIcons name="arrow-drop-down" size={24} color="#3C3169" />
+                      </TouchableOpacity>
                     </View>
                     
-                    <View style={styles.shiftTimeRow}>
-                      <View style={styles.shiftTimeGroup}>
+                    <View style={styles.timeInputsRow}>
+                      <View style={styles.timeInputGroup}>
                         <Text style={styles.shiftFormLabel}>Start Time</Text>
                         <TouchableOpacity 
-                          style={styles.shiftTimeInput}
+                          style={styles.timeInput}
                           onPress={() => {
                             console.log("Opening start time picker");
                             setStartTimePicker(true);
                           }}
                           activeOpacity={0.6}
                         >
-                          <Text style={{fontSize: 16}}>{startTime}</Text>
+                          <Text style={styles.timeText}>{startTime}</Text>
                           <MaterialIcons name="schedule" size={20} color="#3C3169" />
                         </TouchableOpacity>
                       </View>
                       
-                      <View style={styles.shiftTimeGroup}>
+                      <View style={styles.timeInputGroup}>
                         <Text style={styles.shiftFormLabel}>End Time</Text>
                         <TouchableOpacity 
-                          style={styles.shiftTimeInput}
+                          style={styles.timeInput}
                           onPress={() => {
                             console.log("Opening end time picker");
                             setEndTimePicker(true);
                           }}
                           activeOpacity={0.6}
                         >
-                          <Text style={{fontSize: 16}}>{endTime}</Text>
+                          <Text style={styles.timeText}>{endTime}</Text>
                           <MaterialIcons name="schedule" size={20} color="#3C3169" />
                         </TouchableOpacity>
                       </View>
-                      
-                      <View style={styles.shiftButtonGroup}>
-                        {editingShiftId && (
-                          <TouchableOpacity 
-                            style={styles.cancelShiftButton}
-                            onPress={resetShiftForm}
-                          >
-                            <MaterialIcons name="close" size={20} color="#777" />
-                          </TouchableOpacity>
-                        )}
-                        
+                    </View>
+                    
+                    <View style={styles.actionButtonsRow}>
+                      {editingShiftId && (
                         <TouchableOpacity 
-                          style={[styles.addShiftButton, editingShiftId && {backgroundColor: '#16A085'}]}
-                          onPress={handleAddUpdateShift}
-                          disabled={loading}
+                          style={styles.cancelButton}
+                          onPress={resetShiftForm}
                         >
-                          <MaterialIcons name={editingShiftId ? "check" : "add"} size={20} color="#fff" />
-                          <Text style={styles.addShiftButtonText}>
-                            {loading ? "..." : (editingShiftId ? "UPDATE" : "ADD")}
-                          </Text>
+                          <Text style={styles.cancelButtonText}>Cancel</Text>
                         </TouchableOpacity>
-                      </View>
+                      )}
+                      
+                      <TouchableOpacity 
+                        style={[styles.submitButton, editingShiftId && {backgroundColor: '#16A085'}]}
+                        onPress={handleAddUpdateShift}
+                        disabled={loading}
+                      >
+                        <MaterialIcons name={editingShiftId ? "check" : "add"} size={20} color="#fff" />
+                        <Text style={styles.submitButtonText}>
+                          {loading ? "..." : (editingShiftId ? "UPDATE" : "ADD")}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
+                </View>
+                
+                {/* Weekly Schedule Display - Updated Grid layout */}
+                <View style={styles.shiftCard}>
+                  <View 
+                    style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}
+                    key={`weekly-header-${componentKey}`}
+                  >
+                    <Text style={styles.weeklyScheduleTitle}>Weekly Schedule</Text>
+                    <TouchableOpacity 
+                      style={styles.refreshButton}
+                      onPress={() => {
+                        if (!loadingShifts) {
+                          // Force a complete re-render
+                          forceUpdate();
+                          // Then fetch fresh data with no cache
+                          fetchShifts();
+                        }
+                      }}
+                      disabled={loadingShifts}
+                    >
+                      <MaterialIcons name="refresh" size={18} color="#3C3169" style={{marginRight: 5}} />
+                      <Text style={{color: '#3C3169', fontWeight: '500'}}>Refresh</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {loadingShifts ? (
+                    <ActivityIndicator size="large" color="#3C3169" style={{marginVertical: 20}} />
+                  ) : (
+                    <View style={styles.weekDayListContainer} key={`weekly-grid-${componentKey}`}>
+                      {days.map(day => (
+                        <View style={styles.weekDayItem} key={`day-${day}`}>
+                          <View style={styles.weekDayHeader}>
+                            <Text style={styles.weekDayTitle}>{day}</Text>
+                          </View>
+                          <View style={styles.weekDayContent}>
+                            {getShiftsForDay(day).length > 0 ? (
+                              getShiftsForDay(day).map(shift => (
+                                <View style={styles.weekDayShift} key={`shift-${shift.id}`}>
+                                  <View style={styles.weekDayShiftTime}>
+                                    <MaterialIcons name="access-time" size={16} color="#3C3169" style={{marginRight: 6}} />
+                                    <Text style={styles.weekDayShiftTimeText}>{shift.startTime} - {shift.endTime}</Text>
+                                  </View>
+                                  <View style={styles.weekDayShiftActions}>
+                                    <TouchableOpacity 
+                                      style={styles.weekDayShiftEditButton}
+                                      onPress={() => handleEditShift(shift)}
+                                    >
+                                      <MaterialIcons name="edit" size={18} color="#3C3169" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                      style={styles.weekDayShiftDeleteButton}
+                                      onPress={() => handleDeleteShift(shift.id)}
+                                    >
+                                      <MaterialIcons name="delete" size={18} color="#e74c3c" />
+                                    </TouchableOpacity>
+                                  </View>
+                                </View>
+                              ))
+                            ) : (
+                              <Text style={styles.noShiftAssigned}>No shift assigned</Text>
+                            )}
+                            <TouchableOpacity 
+                              style={styles.weekDayAddButton}
+                              onPress={() => {
+                                setSelectedDay(day);
+                                setEditingShiftId(null);
+                              }}
+                            >
+                              <MaterialIcons name="add" size={16} color="#fff" />
+                              <Text style={styles.weekDayAddButtonText}>ADD SHIFT</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
                 
                 {/* Zaman Seçiciler */}
@@ -1910,130 +1986,6 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
                   </View>
                 </Modal>
                 
-                {/* Weekly Schedule Display - Grid layout matching web version */}
-                <View style={styles.shiftCard}>
-                  <View 
-                    style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}
-                    key={`weekly-header-${componentKey}`}
-                  >
-                    <Text style={styles.weeklyScheduleTitle}>Weekly Schedule</Text>
-                    <TouchableOpacity 
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center', 
-                        backgroundColor: '#eaeaea',
-                        padding: 8,
-                        borderRadius: 8
-                      }}
-                      onPress={() => {
-                        if (!loadingShifts) {
-                          // Force a complete re-render
-                          forceUpdate();
-                          // Then fetch fresh data with no cache
-                          fetchShifts();
-                        }
-                      }}
-                      disabled={loadingShifts}
-                    >
-                      <MaterialIcons name="refresh" size={18} color="#3C3169" style={{marginRight: 5}} />
-                      <Text style={{color: '#3C3169', fontWeight: '500'}}>Refresh</Text>
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {loadingShifts ? (
-                    <ActivityIndicator size="large" color="#3C3169" style={{marginVertical: 20}} />
-                  ) : (
-                    <View style={styles.weeklyScheduleContainer} key={`weekly-grid-${componentKey}`}>
-                      {/* First Row */}
-                      <View style={styles.weeklyScheduleRow}>
-                        <WeekDayCard 
-                          day="Monday"
-                          shifts={getShiftsForDay("Monday")}
-                          onAddShift={() => {
-                            setSelectedDay("Monday");
-                            setEditingShiftId(null);
-                          }}
-                          onEditShift={handleEditShift}
-                          onDeleteShift={handleDeleteShift}
-                        />
-                        <WeekDayCard 
-                          day="Tuesday"
-                          shifts={getShiftsForDay("Tuesday")}
-                          onAddShift={() => {
-                            setSelectedDay("Tuesday");
-                            setEditingShiftId(null);
-                          }}
-                          onEditShift={handleEditShift}
-                          onDeleteShift={handleDeleteShift}
-                        />
-                      </View>
-                      
-                      {/* Second Row */}
-                      <View style={styles.weeklyScheduleRow}>
-                        <WeekDayCard 
-                          day="Wednesday"
-                          shifts={getShiftsForDay("Wednesday")}
-                          onAddShift={() => {
-                            setSelectedDay("Wednesday");
-                            setEditingShiftId(null);
-                          }}
-                          onEditShift={handleEditShift}
-                          onDeleteShift={handleDeleteShift}
-                        />
-                        <WeekDayCard 
-                          day="Thursday"
-                          shifts={getShiftsForDay("Thursday")}
-                          onAddShift={() => {
-                            setSelectedDay("Thursday");
-                            setEditingShiftId(null);
-                          }}
-                          onEditShift={handleEditShift}
-                          onDeleteShift={handleDeleteShift}
-                        />
-                      </View>
-                      
-                      {/* Third Row */}
-                      <View style={styles.weeklyScheduleRow}>
-                        <WeekDayCard 
-                          day="Friday"
-                          shifts={getShiftsForDay("Friday")}
-                          onAddShift={() => {
-                            setSelectedDay("Friday");
-                            setEditingShiftId(null);
-                          }}
-                          onEditShift={handleEditShift}
-                          onDeleteShift={handleDeleteShift}
-                        />
-                        <WeekDayCard 
-                          day="Saturday"
-                          shifts={getShiftsForDay("Saturday")}
-                          onAddShift={() => {
-                            setSelectedDay("Saturday");
-                            setEditingShiftId(null);
-                          }}
-                          onEditShift={handleEditShift}
-                          onDeleteShift={handleDeleteShift}
-                        />
-                      </View>
-                      
-                      {/* Fourth Row */}
-                      <View style={styles.weeklyScheduleRow}>
-                        <WeekDayCard 
-                          day="Sunday"
-                          shifts={getShiftsForDay("Sunday")}
-                          onAddShift={() => {
-                            setSelectedDay("Sunday");
-                            setEditingShiftId(null);
-                          }}
-                          onEditShift={handleEditShift}
-                          onDeleteShift={handleDeleteShift}
-                        />
-                        <View style={styles.emptyDayCard} />
-                      </View>
-                    </View>
-                  )}
-                </View>
-                
                 <TouchableOpacity style={styles.closeButton} onPress={() => onClose()}>
                   <Text style={styles.closeButtonText}>CLOSE</Text>
                 </TouchableOpacity>
@@ -2073,60 +2025,6 @@ function StaffDetailsModal({ visible, staff, onClose, onUpdated, onDeleted }) {
     </Modal>
   );
 }
-
-// WeekDayCard component to match web version layout
-const WeekDayCard = ({ day, shifts, onAddShift, onEditShift, onDeleteShift }) => {
-  const hasShift = shifts && shifts.length > 0;
-  
-  console.log(`Rendering ${day} card with ${shifts?.length || 0} shifts`);
-  
-  return (
-    <View style={styles.dayCard} key={`day-card-${day}-${Date.now()}`}>
-      <View style={styles.dayHeaderRow}>
-        <Text style={styles.dayName}>{day}</Text>
-      </View>
-      
-      {hasShift ? (
-        <View style={styles.shiftsContainer}>
-          {shifts.map((shift) => (
-            <View key={`${shift.id}-${shift.dayOfTheWeek}`} style={styles.shiftItem}>
-              <View style={styles.shiftTimeContainer}>
-                <MaterialIcons name="access-time" size={14} color="#3C3169" style={{marginRight: 5}} />
-                <Text style={styles.shiftTimeText}>{shift.startTime} - {shift.endTime}</Text>
-              </View>
-              
-              <View style={styles.shiftActionButtons}>
-                <TouchableOpacity 
-                  style={styles.shiftEditButton}
-                  onPress={() => onEditShift(shift)}
-                >
-                  <MaterialIcons name="edit" size={18} color="#3C3169" />
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.shiftDeleteButton}
-                  onPress={() => onDeleteShift(shift.id)}
-                >
-                  <MaterialIcons name="delete" size={18} color="#e74c3c" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : (
-        <Text style={styles.noShiftText}>No shift assigned</Text>
-      )}
-      
-      <TouchableOpacity 
-        style={styles.addShiftCardButton}
-        onPress={onAddShift}
-      >
-        <MaterialIcons name="add" size={16} color="#fff" />
-        <Text style={styles.addShiftCardText}>ADD SHIFT</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -2605,8 +2503,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginRight: 10,
+    paddingHorizontal: 12,
+    marginRight: 5,
+    flex: 1,
   },
   staffTabItemActive: {
     borderBottomWidth: 3,
@@ -2629,6 +2528,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#3C3169',
     marginBottom: 15,
+    marginLeft: 8,
+  },
+  shiftTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
   },
   addShiftContainer: {
     backgroundColor: '#f5f7fa',
@@ -2669,7 +2574,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: '#fff',
   },
@@ -2677,31 +2582,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  shiftTimeInput: {
+  timeInputsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  timeInputGroup: {
+    width: '48%',
+  },
+  timeInput: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 16,
     backgroundColor: '#fff',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  shiftButtonGroup: {
+  timeText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  actionButtonsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
     justifyContent: 'flex-end',
-    marginTop: 20,
+    alignItems: 'center',
   },
-  cancelShiftButton: {
-    backgroundColor: '#f2f2f2',
-    padding: 8,
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
     borderRadius: 8,
-    marginRight: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    marginRight: 10,
   },
-  addShiftButton: {
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  submitButton: {
     backgroundColor: '#6B3DC9',
     flexDirection: 'row',
     alignItems: 'center',
@@ -2709,9 +2630,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 8,
-    height: 42,
   },
-  addShiftButtonText: {
+  submitButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 14,
@@ -3196,5 +3116,130 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  shiftButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  cancelEditButton: {
+    backgroundColor: '#f2f2f2',
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  cancelEditText: {
+    color: '#333',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  addShiftButtonLarge: {
+    backgroundColor: '#6B3DC9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    height: 42,
+  },
+  addShiftButtonTextLarge: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 5,
+  },
+  weekDayListContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  weekDayItem: {
+    width: '48%',
+    backgroundColor: '#f5f7fa',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  weekDayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  weekDayTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3C3169',
+  },
+  weekDayContent: {
+    flexDirection: 'column',
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    padding: 10,
+    minHeight: 100,
+  },
+  weekDayShift: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  weekDayShiftTime: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  weekDayShiftTimeText: {
+    fontSize: 14,
+    color: '#3C3169',
+    fontWeight: '500',
+  },
+  weekDayShiftActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  weekDayShiftEditButton: {
+    marginRight: 8,
+    padding: 4,
+  },
+  weekDayShiftDeleteButton: {
+    padding: 4,
+  },
+  weekDayAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6B3DC9',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginTop: 8,
+  },
+  weekDayAddButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  noShiftAssigned: {
+    fontSize: 14,
+    color: '#888',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginVertical: 15,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eaeaea',
+    borderRadius: 8,
+    padding: 8,
   },
 }); 
