@@ -1,8 +1,20 @@
 import axios from 'axios';
 import { getAuthToken } from './api';
+import { Platform } from 'react-native';
 
 // API base URL - should match your backend URL
-const API_BASE_URL = 'http://localhost:5002/api';
+let API_BASE_URL = 'http://localhost:5002/api';
+
+// For Android, localhost doesn't work - use 10.0.2.2 instead which points to the host machine
+if (Platform.OS === 'android') {
+  API_BASE_URL = 'http://10.0.2.2:5002/api';
+}
+
+// Override with your specific IP if needed for testing on physical devices
+// Uncomment and update this line when testing on physical devices:
+// API_BASE_URL = 'http://YOUR_COMPUTER_IP:5002/api';
+
+console.log(`🚀 Room Service API configured with base URL: ${API_BASE_URL} (${Platform.OS})`);
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -106,6 +118,19 @@ const roomService = {
       return response.data;
     } catch (error) {
       console.error(`Error fetching room with ID ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Create a new room
+  createRoom: async (roomData) => {
+    try {
+      console.log("Creating a new room with data:", roomData);
+      const response = await apiClient.post('/v1/Room', roomData);
+      console.log("Room creation API response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating room:', error.response?.data || error.message);
       throw error;
     }
   },

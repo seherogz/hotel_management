@@ -1268,16 +1268,15 @@ export const getAuthToken = async () => {
     const token = await AsyncStorage.getItem('token');
     
     if (!token) {
-      console.warn('No auth token found in AsyncStorage, using mock token for development');
-      return 'mock-auth-token'; // Fallback to mock token for development
+      console.warn('No auth token found in AsyncStorage');
+      return null; // Return null instead of a mock token
     }
     
     console.log('Retrieved auth token from storage');
     return token;
   } catch (error) {
     console.error('Error retrieving auth token:', error);
-    console.warn('Using mock token due to error reading from AsyncStorage');
-    return 'mock-auth-token'; // Fallback to mock token on error
+    return null; // Return null on error instead of a mock token
   }
 };
 
