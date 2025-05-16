@@ -135,6 +135,19 @@ const roomService = {
     }
   },
 
+  // Update an existing room
+  updateRoom: async (id, roomData) => {
+    try {
+      console.log(`Updating room ID ${id} with data:`, roomData);
+      const response = await apiClient.put(`/v1/Room/${id}`, roomData);
+      console.log("Room update API response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating room ID ${id}:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
   // Get calendar view data for the specified date range
   getCalendarViewData: async (params) => {
     if (!params.StartDate || !params.EndDate) {
