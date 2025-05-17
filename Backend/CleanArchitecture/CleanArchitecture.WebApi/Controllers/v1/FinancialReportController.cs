@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CleanArchitecture.Core.Features.FinancialReports.Queries.GetCalculatedMonthlyDetails;
 
 namespace CleanArchitecture.WebApi.Controllers.v1
 {
@@ -45,6 +46,16 @@ namespace CleanArchitecture.WebApi.Controllers.v1
             {
                 Year = year
             }));
+        }
+        [HttpGet("calculated-monthly-details")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<CalculatedMonthlyDetailViewModel>))]
+        public async Task<IActionResult> GetCalculatedMonthlyDetails([FromQuery] int year)
+        {
+            if (year <= 0) // Basit bir yıl kontrolü
+            {
+                return BadRequest("Invalid year provided.");
+            }
+            return Ok(await Mediator.Send(new GetCalculatedMonthlyDetailsQuery { Year = year }));
         }
     }
 }

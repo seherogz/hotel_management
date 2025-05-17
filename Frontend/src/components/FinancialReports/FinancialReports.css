@@ -1,0 +1,188 @@
+.financial-reports-container {
+  padding: 24px;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.filter-controls {
+  display: flex;
+  gap: 16px;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.date-range-button {
+  background-color: white;
+  border: 1px solid #d9d9d9;
+  display: flex;
+  align-items: center;
+  padding: 4px 15px;
+  height: 32px;
+}
+
+.summary-cards {
+  margin-bottom: 32px;
+}
+
+.summary-card {
+  height: 100%;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-top: 3px solid #3f2b7b;
+}
+
+.card-title {
+  font-size: 16px;
+  color: #8c8c8c;
+  margin-bottom: 8px;
+}
+
+.amount {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.amount.primary {
+  color: #3f2b7b;
+}
+
+.amount.secondary {
+  color: #3f2b7b;
+}
+
+.amount.expense {
+  color: #ff4d4f;
+}
+
+.amount.positive {
+  color: #52c41a;
+}
+
+.amount.negative {
+  color: #ff4d4f;
+}
+
+.growth {
+  font-size: 14px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.growth.positive {
+  color: #52c41a;
+}
+
+.growth.negative {
+  color: #ff4d4f;
+}
+
+.comparison {
+  font-size: 14px;
+  color: #8c8c8c;
+}
+
+.monthly-report {
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-top: 3px solid #3f2b7b;
+}
+
+.report-header {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.report-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.financial-table {
+  margin-top: 16px;
+}
+
+.financial-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+/* Themed table styles */
+.themed-table th {
+  background-color: #3f2b7b !important;
+  color: white !important;
+}
+
+.themed-table .ant-table-thead > tr > th {
+  background-color: #3f2b7b !important;
+  color: white !important;
+  border-bottom: 1px solid #5e4a9a;
+}
+
+.themed-table .ant-table-column-title {
+  color: white !important;
+}
+
+.themed-table .ant-table-cell {
+  border-color: #e8e8e8;
+}
+
+.themed-table .ant-table-column-sorter-up, 
+.themed-table .ant-table-column-sorter-down {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.themed-table .ant-table-filter-trigger {
+  color: white !important;
+}
+
+.trend-up, .trend-down {
+  display: flex;
+  justify-content: center;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px 0;
+  color: #8c8c8c;
+  font-size: 16px;
+}
+
+/* Mobil Uyumluluk */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .filter-controls {
+    width: 100%;
+    margin-top: 10px;
+  }
+  
+  .amount {
+    font-size: 20px;
+  }
+} 
