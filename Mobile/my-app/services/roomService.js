@@ -247,6 +247,19 @@ const roomService = {
     }
   },
 
+  // Delete a room
+  deleteRoom: async (roomId) => {
+    try {
+      console.log(`Deleting room with ID ${roomId}`);
+      const response = await apiClient.delete(`/v1/Room/${roomId}`);
+      console.log('Room deletion response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting room ${roomId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
   // Format room data from API to match UI requirements
   formatRoomData: (apiRoom) => {
     // Log the raw room data to see what we're working with
@@ -362,7 +375,20 @@ const roomService = {
 
     console.log("Formatted room:", formattedRoom.id, formattedRoom.roomNumber);
     return formattedRoom;
-  }
+  },
+
+  // Get maintenance issues for a room
+  getRoomMaintenanceIssues: async (roomId) => {
+    try {
+      console.log(`Fetching maintenance issues for room ID ${roomId}`);
+      const response = await apiClient.get(`/v1/Room/${roomId}/maintenance-issues`);
+      console.log('Maintenance issues response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching maintenance issues for room ${roomId}:`, error);
+      throw error;
+    }
+  },
 };
 
 export default roomService; 

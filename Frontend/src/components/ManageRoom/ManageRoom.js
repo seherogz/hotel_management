@@ -3,6 +3,7 @@ import { Card, Row, Col, Button, Input, Select, Tabs, Badge, Space, Modal, Form,
 import { SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import './ManageRoom.css';
 import roomService from '../../services/roomService';
+import MaintenanceIssues from './MaintenanceIssues';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -16,16 +17,20 @@ const ManageRoom = () => {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedFloor, setSelectedFloor] = useState('all');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [modalMode, setModalMode] = useState('add'); // 'add' veya 'edit'
+  const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
   const [currentRoom, setCurrentRoom] = useState(null);
   const [form] = Form.useForm();
+  
+  // State for maintenance issues modal
+  const [isMaintenanceModalVisible, setIsMaintenanceModalVisible] = useState(false);
+  const [selectedMaintenanceRoom, setSelectedMaintenanceRoom] = useState(null);
 
-  // Odaları API'den yükle
+  // Load rooms from API
   useEffect(() => {
     fetchRooms();
   }, []);
 
-  // Filtrelemeleri yönet
+  // Manage filters
   useEffect(() => {
     filterRooms();
   }, [rooms, searchText, activeTab, selectedStatus, selectedFloor]);
@@ -37,7 +42,7 @@ const ManageRoom = () => {
       setRooms(response.data);
       setFilteredRooms(response.data);
     } catch (error) {
-      console.error('Odalar yüklenirken hata:', error);
+      console.error('Error loading rooms:', error);
     } finally {
       setLoading(false);
     }
@@ -46,7 +51,7 @@ const ManageRoom = () => {
   const filterRooms = () => {
     let filtered = [...rooms];
 
-    // Arama filtresi
+    // Search filter
     if (searchText) {
       filtered = filtered.filter(room => 
         room.roomNumber.toString().includes(searchText) || 
@@ -54,17 +59,17 @@ const ManageRoom = () => {
       );
     }
 
-    // Oda tipi filtresi
+    // Room type filter
     if (activeTab !== 'all') {
       filtered = filtered.filter(room => room.roomType === activeTab);
     }
 
-    // Durum filtresi
+    // Status filter
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(room => room.computedStatus === selectedStatus);
     }
 
-    // Kat filtresi
+    // Floor filter
     if (selectedFloor !== 'all') {
       filtered = filtered.filter(room => room.floor.toString() === selectedFloor);
     }
@@ -124,24 +129,33 @@ const ManageRoom = () => {
       }
       
       setIsModalVisible(false);
-      fetchRooms(); // Odaları yeniden yükle
+      fetchRooms(); // Reload rooms
     } catch (error) {
       console.error('Form validation failed:', error);
     }
   };
 
   const handleDeleteRoom = async (roomId) => {
-    if (window.confirm('Bu odayı silmek istediğinizden emin misiniz?')) {
+    if (window.confirm('Are you sure you want to delete this room?')) {
       try {
         await roomService.deleteRoom(roomId);
-        fetchRooms(); // Odaları yeniden yükle
+        fetchRooms(); // Reload rooms
       } catch (error) {
-        console.error('Oda silinirken hata:', error);
+        console.error('Error deleting room:', error);
       }
     }
   };
 
-  // Durum rengini belirle
+  const handleMaintenanceModalOpen = (room) => {
+    setSelectedMaintenanceRoom(room);
+    setIsMaintenanceModalVisible(true);
+  };
+
+  const handleMaintenanceModalClose = () => {
+    setIsMaintenanceModalVisible(false);
+  };
+
+  // Determine status color
   const getStatusColor = (status) => {
     switch (status) {
       case 'Available':
@@ -155,15 +169,15 @@ const ManageRoom = () => {
     }
   };
 
-  // Durum Turkish çevirisi
+  // Get status text
   const getStatusText = (status) => {
     switch (status) {
       case 'Available':
-        return 'Hazır';
+        return 'Available';
       case 'Occupied':
-        return 'Dolu';
+        return 'Occupied';
       case 'Maintenance':
-        return 'Bakımda';
+        return 'Maintenance';
       default:
         return status;
     }
@@ -171,169 +185,183 @@ const ManageRoom = () => {
 
   return (
     <div className="manage-room-container">
-      <h1>Oda Yönetimi</h1>
+      <h1>Room Management</h1>
 
-      {/* Oda tipleri özet kartları */}
+      {/* Room type summary cards */}
       <Row gutter={16} className="room-summary">
         <Col span={6}>
           <Card className="summary-card">
-            <h3>Standart</h3>
+            <h3>Standard</h3>
             <div className="summary-content">
               <div>
-                <div>Toplam</div>
+                <div>Total</div>
                 <div className="total-count">{rooms.filter(r => r.roomType === 'Standard').length}</div>
               </div>
               <div>
-                <div>Müsait</div>
-                <div className="available-count">
-                  {rooms.filter(r => r.roomType === 'Standard' && r.computedStatus === 'Available').length}
-                </div>
+                <div>Available</div>
+                <div className="available-count">{rooms.filter(r => r.roomType === 'Standard' && r.computedStatus === 'Available').length}</div>
               </div>
             </div>
           </Card>
         </Col>
         <Col span={6}>
           <Card className="summary-card">
-            <h3>Delüks</h3>
+            <h3>Deluxe</h3>
             <div className="summary-content">
               <div>
-                <div>Toplam</div>
+                <div>Total</div>
                 <div className="total-count">{rooms.filter(r => r.roomType === 'Deluxe').length}</div>
               </div>
               <div>
-                <div>Müsait</div>
-                <div className="available-count">
-                  {rooms.filter(r => r.roomType === 'Deluxe' && r.computedStatus === 'Available').length}
-                </div>
+                <div>Available</div>
+                <div className="available-count">{rooms.filter(r => r.roomType === 'Deluxe' && r.computedStatus === 'Available').length}</div>
               </div>
             </div>
           </Card>
         </Col>
         <Col span={6}>
           <Card className="summary-card">
-            <h3>Süit</h3>
+            <h3>Suite</h3>
             <div className="summary-content">
               <div>
-                <div>Toplam</div>
+                <div>Total</div>
                 <div className="total-count">{rooms.filter(r => r.roomType === 'Suite').length}</div>
               </div>
               <div>
-                <div>Müsait</div>
-                <div className="available-count">
-                  {rooms.filter(r => r.roomType === 'Suite' && r.computedStatus === 'Available').length}
-                </div>
+                <div>Available</div>
+                <div className="available-count">{rooms.filter(r => r.roomType === 'Suite' && r.computedStatus === 'Available').length}</div>
               </div>
             </div>
           </Card>
         </Col>
         <Col span={6}>
           <Card className="summary-card">
-            <h3>Kral Dairesi</h3>
+            <h3>All Rooms</h3>
             <div className="summary-content">
               <div>
-                <div>Toplam</div>
-                <div className="total-count">{rooms.filter(r => r.roomType === 'Royal').length || 0}</div>
+                <div>Total</div>
+                <div className="total-count">{rooms.length}</div>
               </div>
               <div>
-                <div>Müsait</div>
-                <div className="available-count">
-                  {rooms.filter(r => r.roomType === 'Royal' && r.computedStatus === 'Available').length || 0}
-                </div>
+                <div>Available</div>
+                <div className="available-count">{rooms.filter(r => r.computedStatus === 'Available').length}</div>
               </div>
             </div>
           </Card>
         </Col>
       </Row>
 
-      {/* Arama ve filtreler */}
+      {/* Filters */}
       <div className="filters-container">
         <Input
-          placeholder="Oda ara..."
           prefix={<SearchOutlined />}
+          placeholder="Search by room number or description"
           onChange={handleSearch}
-          style={{ width: 200 }}
+          style={{ width: 250 }}
         />
-        <Select 
-          defaultValue="all" 
-          style={{ width: 150 }} 
+        <Select
+          placeholder="Filter by status"
+          style={{ width: 150 }}
+          defaultValue="all"
           onChange={handleStatusChange}
         >
-          <Option value="all">Tüm Durumlar</Option>
-          <Option value="Available">Hazır</Option>
-          <Option value="Occupied">Dolu</Option>
-          <Option value="Maintenance">Bakımda</Option>
+          <Option value="all">All Statuses</Option>
+          <Option value="Available">Available</Option>
+          <Option value="Occupied">Occupied</Option>
+          <Option value="Maintenance">Maintenance</Option>
         </Select>
-        <Select 
-          defaultValue="all" 
-          style={{ width: 120 }} 
+        <Select
+          placeholder="Filter by floor"
+          style={{ width: 120 }}
+          defaultValue="all"
           onChange={handleFloorChange}
         >
-          <Option value="all">Tüm Katlar</Option>
-          <Option value="1">1. Kat</Option>
-          <Option value="2">2. Kat</Option>
-          <Option value="3">3. Kat</Option>
+          <Option value="all">All Floors</Option>
+          <Option value="1">1st Floor</Option>
+          <Option value="2">2nd Floor</Option>
+          <Option value="3">3rd Floor</Option>
+          <Option value="4">4th Floor</Option>
         </Select>
         <Button 
           type="primary" 
-          icon={<PlusOutlined />}
+          icon={<PlusOutlined />} 
           onClick={showAddModal}
         >
-          YENİ ODA
+          Add Room
         </Button>
       </div>
 
-      {/* Tabs ve Oda Listesi */}
-      <Tabs defaultActiveKey="all" onChange={handleTabChange} className="room-tabs">
-        <TabPane tab="Tüm Odalar" key="all">
-          <RoomList 
-            rooms={filteredRooms} 
-            loading={loading} 
-            onEdit={showEditModal} 
-            onDelete={handleDeleteRoom}
-            getStatusColor={getStatusColor}
-            getStatusText={getStatusText}
-          />
-        </TabPane>
-        <TabPane tab="Standart" key="Standard">
-          <RoomList 
-            rooms={filteredRooms} 
-            loading={loading} 
-            onEdit={showEditModal} 
-            onDelete={handleDeleteRoom}
-            getStatusColor={getStatusColor}
-            getStatusText={getStatusText}
-          />
-        </TabPane>
-        <TabPane tab="Delüks" key="Deluxe">
-          <RoomList 
-            rooms={filteredRooms} 
-            loading={loading} 
-            onEdit={showEditModal} 
-            onDelete={handleDeleteRoom}
-            getStatusColor={getStatusColor}
-            getStatusText={getStatusText}
-          />
-        </TabPane>
-        <TabPane tab="Süit" key="Suite">
-          <RoomList 
-            rooms={filteredRooms} 
-            loading={loading} 
-            onEdit={showEditModal} 
-            onDelete={handleDeleteRoom}
-            getStatusColor={getStatusColor}
-            getStatusText={getStatusText}
-          />
-        </TabPane>
-      </Tabs>
+      {/* Room List */}
+      <div className="room-tabs">
+        <Tabs defaultActiveKey="all" onChange={handleTabChange}>
+          <TabPane tab="All Rooms" key="all">
+            <RoomList 
+              rooms={filteredRooms} 
+              loading={loading}
+              onEdit={showEditModal}
+              onDelete={handleDeleteRoom}
+              onMaintenanceView={handleMaintenanceModalOpen}
+              getStatusColor={getStatusColor}
+              getStatusText={getStatusText}
+            />
+          </TabPane>
+          <TabPane tab="Standard Rooms" key="Standard">
+            <RoomList 
+              rooms={filteredRooms.filter(room => room.roomType === 'Standard')} 
+              loading={loading}
+              onEdit={showEditModal}
+              onDelete={handleDeleteRoom}
+              onMaintenanceView={handleMaintenanceModalOpen}
+              getStatusColor={getStatusColor}
+              getStatusText={getStatusText}
+            />
+          </TabPane>
+          <TabPane tab="Deluxe Rooms" key="Deluxe">
+            <RoomList 
+              rooms={filteredRooms.filter(room => room.roomType === 'Deluxe')} 
+              loading={loading}
+              onEdit={showEditModal}
+              onDelete={handleDeleteRoom}
+              onMaintenanceView={handleMaintenanceModalOpen}
+              getStatusColor={getStatusColor}
+              getStatusText={getStatusText}
+            />
+          </TabPane>
+          <TabPane tab="Suite Rooms" key="Suite">
+            <RoomList 
+              rooms={filteredRooms.filter(room => room.roomType === 'Suite')} 
+              loading={loading}
+              onEdit={showEditModal}
+              onDelete={handleDeleteRoom}
+              onMaintenanceView={handleMaintenanceModalOpen}
+              getStatusColor={getStatusColor}
+              getStatusText={getStatusText}
+            />
+          </TabPane>
+        </Tabs>
+      </div>
 
-      {/* Oda Ekleme/Düzenleme Modal */}
+      {/* Room Add/Edit Modal */}
       <Modal
-        title={modalMode === 'add' ? 'Yeni Oda Ekle' : 'Odayı Düzenle'}
+        title={
+          <span style={{ color: '#3f2b7b' }}>
+            {modalMode === 'add' ? 'Add New Room' : `Edit Room: ${currentRoom?.roomNumber}`}
+          </span>
+        }
         visible={isModalVisible}
-        onOk={handleRoomSubmit}
         onCancel={handleCancel}
-        okText={modalMode === 'add' ? 'Ekle' : 'Güncelle'}
-        cancelText="İptal"
+        footer={[
+          <Button key="back" onClick={handleCancel}>
+            Cancel
+          </Button>,
+          <Button 
+            key="submit" 
+            type="primary" 
+            onClick={handleRoomSubmit}
+          >
+            {modalMode === 'add' ? 'Add' : 'Update'}
+          </Button>,
+        ]}
       >
         <Form
           form={form}
@@ -341,50 +369,50 @@ const ManageRoom = () => {
         >
           <Form.Item
             name="roomNumber"
-            label="Oda Numarası"
-            rules={[{ required: true, message: 'Lütfen oda numarası girin!' }]}
+            label="Room Number"
+            rules={[{ required: true, message: 'Please enter a room number!' }]}
           >
             <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item
             name="roomType"
-            label="Oda Tipi"
-            rules={[{ required: true, message: 'Lütfen oda tipi seçin!' }]}
+            label="Room Type"
+            rules={[{ required: true, message: 'Please select a room type!' }]}
           >
             <Select>
-              <Option value="Standard">Standart</Option>
-              <Option value="Deluxe">Delüks</Option>
-              <Option value="Suite">Süit</Option>
-              <Option value="Royal">Kral Dairesi</Option>
+              <Option value="Standard">Standard</Option>
+              <Option value="Deluxe">Deluxe</Option>
+              <Option value="Suite">Suite</Option>
+              <Option value="Royal">Royal Suite</Option>
             </Select>
           </Form.Item>
           <Form.Item
             name="floor"
-            label="Kat"
-            rules={[{ required: true, message: 'Lütfen kat seçin!' }]}
+            label="Floor"
+            rules={[{ required: true, message: 'Please select a floor!' }]}
           >
             <Select>
-              <Option value={1}>1. Kat</Option>
-              <Option value={2}>2. Kat</Option>
-              <Option value={3}>3. Kat</Option>
+              <Option value={1}>1st Floor</Option>
+              <Option value={2}>2nd Floor</Option>
+              <Option value={3}>3rd Floor</Option>
             </Select>
           </Form.Item>
           <Form.Item
             name="roomCapacity"
-            label="Kapasite"
-            rules={[{ required: true, message: 'Lütfen kapasite seçin!' }]}
+            label="Capacity"
+            rules={[{ required: true, message: 'Please select capacity!' }]}
           >
             <Select>
-              <Option value="1">1 Kişilik</Option>
-              <Option value="2">2 Kişilik</Option>
-              <Option value="3">3 Kişilik</Option>
-              <Option value="4">4 Kişilik</Option>
+              <Option value="1">1 Person</Option>
+              <Option value="2">2 People</Option>
+              <Option value="3">3 People</Option>
+              <Option value="4">4 People</Option>
             </Select>
           </Form.Item>
           <Form.Item
             name="pricePerNight"
-            label="Gecelik Ücret (₺)"
-            rules={[{ required: true, message: 'Lütfen gecelik ücreti girin!' }]}
+            label="Price per Night (₺)"
+            rules={[{ required: true, message: 'Please enter price per night!' }]}
           >
             <InputNumber 
               formatter={value => `₺ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
@@ -395,32 +423,41 @@ const ManageRoom = () => {
           </Form.Item>
           <Form.Item
             name="description"
-            label="Açıklama"
+            label="Description"
           >
             <Input.TextArea rows={2} />
           </Form.Item>
           <Form.Item
             name="features"
-            label="Özellikler"
+            label="Features"
           >
-            <Select mode="multiple" placeholder="Özellikleri seçin">
+            <Select mode="multiple" placeholder="Select features">
               <Option value="Wi-Fi">Wi-Fi</Option>
               <Option value="TV">TV</Option>
-              <Option value="Mini Bar">Minibar</Option>
-              <Option value="Air Conditioning">Klima</Option>
-              <Option value="Balcony">Balkon</Option>
-              <Option value="Jacuzzi">Jakuzi</Option>
-              <Option value="Coffee Machine">Kahve Makinesi</Option>
+              <Option value="Mini Bar">Mini Bar</Option>
+              <Option value="Air Conditioning">Air Conditioning</Option>
+              <Option value="Balcony">Balcony</Option>
+              <Option value="Jacuzzi">Jacuzzi</Option>
+              <Option value="Coffee Machine">Coffee Machine</Option>
             </Select>
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Maintenance Issues Modal */}
+      {selectedMaintenanceRoom && (
+        <MaintenanceIssues
+          visible={isMaintenanceModalVisible}
+          onClose={handleMaintenanceModalClose}
+          room={selectedMaintenanceRoom}
+        />
+      )}
     </div>
   );
 };
 
-// Oda listesi alt bileşeni
-const RoomList = ({ rooms, loading, onEdit, onDelete, getStatusColor, getStatusText }) => {
+// Room list component
+const RoomList = ({ rooms, loading, onEdit, onDelete, onMaintenanceView, getStatusColor, getStatusText }) => {
   return (
     <div className="room-list">
       <Row gutter={[16, 16]}>
@@ -431,21 +468,19 @@ const RoomList = ({ rooms, loading, onEdit, onDelete, getStatusColor, getStatusT
               actions={[
                 <EditOutlined key="edit" onClick={() => onEdit(room)} />,
                 <DeleteOutlined key="delete" onClick={() => onDelete(room.id)} />,
-                <InfoCircleOutlined key="view" />
+                <InfoCircleOutlined key="view" onClick={() => onMaintenanceView(room)} />
               ]}
             >
               <div className="card-header">
-                <h3>Oda {room.roomNumber}</h3>
+                <h3>Room {room.roomNumber}</h3>
                 <Badge 
                   status={getStatusColor(room.computedStatus)} 
                   text={getStatusText(room.computedStatus)}
                 />
               </div>
               <div className="card-content">
-                <p>{room.roomType === 'Standard' ? 'Standart' : 
-                    room.roomType === 'Deluxe' ? 'Delüks' : 
-                    room.roomType === 'Suite' ? 'Süit' : 'Kral Dairesi'} - {room.capacity} Kişilik - {room.floor}. Kat</p>
-                <div className="price">{room.pricePerNight} ₺ / Gece</div>
+                <p>{room.roomType} - {room.capacity} {room.capacity === 1 ? 'Person' : 'People'} - {room.floor}{room.floor === 1 ? 'st' : room.floor === 2 ? 'nd' : room.floor === 3 ? 'rd' : 'th'} Floor</p>
+                <div className="price">{room.pricePerNight} ₺ / Night</div>
                 <div className="room-features">
                   <Space wrap>
                     {room.features && room.features.map((feature, idx) => (

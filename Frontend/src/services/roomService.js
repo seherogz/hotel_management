@@ -212,7 +212,9 @@ const roomService = {
   // Get maintenance issues for a room
   getRoomMaintenanceIssues: async (roomId) => {
     try {
+      console.log(`API isteği: /v1/Room/${roomId}/maintenance-issues (GET)`);
       const response = await apiClient.get(`/v1/Room/${roomId}/maintenance-issues`);
+      // API doğrudan dizi dönüyor, response.data döndür
       return response.data;
     } catch (error) {
       console.error(`Error fetching maintenance issues for room ${roomId}:`, error);

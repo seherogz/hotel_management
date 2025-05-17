@@ -6,6 +6,7 @@
   margin-bottom: 24px;
   font-size: 24px;
   font-weight: 600;
+  color: #3f2b7b;
 }
 
 /* Özet kartları */
@@ -16,12 +17,14 @@
 .summary-card {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-top: 3px solid #3f2b7b;
 }
 
 .summary-card h3 {
   font-size: 18px;
   font-weight: 500;
   margin-bottom: 10px;
+  color: #3f2b7b;
 }
 
 .summary-content {
@@ -32,7 +35,7 @@
 .total-count {
   font-size: 26px;
   font-weight: bold;
-  color: #333;
+  color: #3f2b7b;
 }
 
 .available-count {
@@ -55,6 +58,14 @@
   margin-top: 20px;
 }
 
+.room-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #3f2b7b;
+}
+
+.room-tabs .ant-tabs-ink-bar {
+  background-color: #3f2b7b;
+}
+
 .room-list {
   margin-top: 16px;
 }
@@ -63,6 +74,7 @@
   border-radius: 8px;
   transition: all 0.3s;
   height: 100%;
+  border-top: 2px solid #3f2b7b;
 }
 
 .room-card:hover {
@@ -81,6 +93,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 500;
+  color: #3f2b7b;
 }
 
 .card-content p {
@@ -91,7 +104,7 @@
 .price {
   font-size: 18px;
   font-weight: bold;
-  color: #1890ff;
+  color: #3f2b7b;
   margin-bottom: 12px;
 }
 
@@ -108,4 +121,14 @@
   margin-bottom: 6px;
   font-size: 12px;
   color: #666;
+}
+
+.ant-btn-primary {
+  background-color: #3f2b7b;
+  border-color: #3f2b7b;
+}
+
+.ant-btn-primary:hover, .ant-btn-primary:focus {
+  background-color: #503b8b;
+  border-color: #503b8b;
 } 
