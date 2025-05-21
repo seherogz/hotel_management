@@ -200,25 +200,6 @@ const Dashboard = () => {
             <span>Customer List</span>
           </button>
         </div>
-
-        {/* Database Status */}
-        <div className={styles.databaseStatusSection}>
-          <h3 className={styles.sectionTitle}>Database Status</h3>
-          <div className={styles.statusGrid}>
-            <div className={styles.statusItem}>
-              <span className={styles.statusLabel}>Total Customers:</span>
-              <span className={styles.statusValue}>250</span>
-            </div>
-            <div className={styles.statusItem}>
-              <span className={styles.statusLabel}>Last Updated:</span>
-              <span className={styles.statusValue}>{today} 22:54:30</span>
-            </div>
-            <div className={styles.statusItem}>
-              <span className={styles.statusLabel}>Database Connection:</span>
-              <span className={`${styles.statusValue} ${styles.activeStatus}`}>Active</span>
-            </div>
-          </div>
-        </div>
       </div>
   );
 };
