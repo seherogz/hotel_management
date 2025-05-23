@@ -57,11 +57,11 @@ export default function OtherScreen() {
       
       {/* Header */}
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Diğer İşlemler</Text>
+        <Text style={styles.headerTitle}>Other Operations</Text>
       </View>
       
       <ScrollView style={styles.content}>
-        <Text style={styles.sectionTitle}>Yönetim İşlemleri</Text>
+        <Text style={styles.sectionTitle}>Management Operations</Text>
         
         {/* Menu Grid */}
         <View style={styles.menuGrid}>
@@ -71,7 +71,7 @@ export default function OtherScreen() {
             onPress={() => navigateToSection('Accounting')}
           >
             <MaterialIcons name="account-balance" size={48} color="white" />
-            <Text style={styles.menuItemText}>Muhasebe</Text>
+            <Text style={styles.menuItemText}>Accounting</Text>
           </TouchableOpacity>
           
           {/* Financial Reports */}
@@ -80,7 +80,7 @@ export default function OtherScreen() {
             onPress={() => navigateToSection('Financial Reports')}
           >
             <FontAwesome5 name="chart-line" size={40} color="white" />
-            <Text style={styles.menuItemText}>Finansal Raporlar</Text>
+            <Text style={styles.menuItemText}>Financial Reports</Text>
           </TouchableOpacity>
           
           {/* Manage Staff */}
@@ -89,7 +89,7 @@ export default function OtherScreen() {
             onPress={() => navigateToSection('Manage Staff')}
           >
             <MaterialIcons name="groups" size={48} color="white" />
-            <Text style={styles.menuItemText}>Personel Yönetimi</Text>
+            <Text style={styles.menuItemText}>Personnel Management</Text>
           </TouchableOpacity>
           
           {/* Manage Rooms */}
@@ -98,7 +98,7 @@ export default function OtherScreen() {
             onPress={() => navigateToSection('Manage Rooms')}
           >
             <MaterialIcons name="meeting-room" size={48} color="white" />
-            <Text style={styles.menuItemText}>Oda Yönetimi</Text>
+            <Text style={styles.menuItemText}>Room Management</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

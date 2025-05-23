@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, StatusBar, Alert, Modal, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, StatusBar, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/api';
+import dashboardService from '@/services/dashboardService';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -22,11 +23,84 @@ export default function DashboardScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   
+  // Dashboard Data State
+  const [dashboardData, setDashboardData] = useState({
+    roomSummary: {
+      totalRooms: 0,
+      availableRooms: 0,
+      occupiedRooms: 0,
+      maintenanceRooms: 0
+    },
+    checkInOutSummary: {
+      todaysCheckIns: 0,
+      todaysCheckOuts: 0
+    },
+    revenueSummary: {
+      todaysRevenue: 0,
+      thisMonthRevenue: 0,
+      revenueThisMonth: 0
+    },
+    upcomingReservationsNext7Days: 0
+  });
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
+  const [dashboardError, setDashboardError] = useState(null);
+  
   // Available roles
   const roles = ['Accountant', 'Receptionist'];
   
   // Use the email from the context or params as a fallback
   const userEmail = user?.email || params.email || "user@example.com";
+  
+  // Fetch dashboard data when component mounts
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  // Function to fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoadingDashboard(true);
+      setDashboardError(null);
+      
+      console.log('Fetching dashboard summary data...');
+      const data = await dashboardService.getSummary();
+      console.log('Dashboard data received:', data);
+      
+      // Validate received data contains the expected structure
+      const validatedData = {
+        roomSummary: {
+          totalRooms: data?.roomSummary?.totalRooms || 0,
+          availableRooms: data?.roomSummary?.availableRooms || 0,
+          occupiedRooms: data?.roomSummary?.occupiedRooms || 0,
+          maintenanceRooms: data?.roomSummary?.maintenanceRooms || 0
+        },
+        checkInOutSummary: {
+          todaysCheckIns: data?.checkInOutSummary?.checkInsToday || 
+                         data?.checkInOutSummary?.todaysCheckIns || 0,
+          todaysCheckOuts: data?.checkInOutSummary?.checkOutsToday || 
+                          data?.checkInOutSummary?.todaysCheckOuts || 0
+        },
+        revenueSummary: {
+          todaysRevenue: data?.revenueSummary?.revenueToday || 
+                       data?.revenueSummary?.todaysRevenue || 0,
+          thisMonthRevenue: data?.revenueSummary?.thisMonthRevenue || 
+                          data?.revenueSummary?.revenueThisMonth || 
+                          data?.revenueSummary?.monthlyRevenue || 0,
+          revenueThisMonth: data?.revenueSummary?.revenueThisMonth || 
+                          data?.revenueSummary?.thisMonthRevenue || 
+                          data?.revenueSummary?.monthlyRevenue || 0
+        },
+        upcomingReservationsNext7Days: data?.upcomingReservationsNext7Days || 0
+      };
+      
+      setDashboardData(validatedData);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setDashboardError(error instanceof Error ? error.message : 'An error occurred while fetching dashboard data');
+    } finally {
+      setIsLoadingDashboard(false);
+    }
+  };
   
   const handleLogout = async () => {
     try {
@@ -98,7 +172,6 @@ export default function DashboardScreen() {
   <Text style={styles.headerTitle}>Hotel Management System</Text>
   <View style={styles.headerButtons}>
     {/* Conditionally render Register button based on Admin OR SuperAdmin role */}
-    {/* BURAYI DÜZELTİN: user?.Roles yerine user?.roles kullanın */}
     {(user?.roles?.includes('Admin') || user?.roles?.includes('SuperAdmin')) && (
       <TouchableOpacity
         style={styles.registerButton}
@@ -247,9 +320,35 @@ export default function DashboardScreen() {
         <Text style={styles.userInfo}>Logged in as: {userEmail}</Text>
         
         {/* Daily Summary */}
+        <View style={styles.summaryHeaderContainer}>
         <Text style={styles.sectionTitle}>Today's Summary</Text>
+          {isLoadingDashboard ? null : (
+            <TouchableOpacity 
+              style={styles.refreshButton} 
+              onPress={fetchDashboardData}
+            >
+              <MaterialIcons name="refresh" size={18} color="#6B3DC9" />
+              <Text style={styles.refreshText}>Refresh</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         
-        {/* Stats Cards */}
+        {/* Loading Indicator */}
+        {isLoadingDashboard ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6B3DC9" />
+            <Text style={styles.loadingText}>Loading dashboard data...</Text>
+          </View>
+        ) : dashboardError ? (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={40} color="#E53935" />
+            <Text style={styles.errorText}>{dashboardError}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={fetchDashboardData}>
+              <Text style={styles.retryButtonText}>RETRY</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Stats Cards */
         <View style={styles.statsContainer}>
           {/* Rooms Card */}
           <View style={styles.statCard}>
@@ -257,12 +356,14 @@ export default function DashboardScreen() {
               <MaterialIcons name="hotel" size={24} color="#4C3A89" />
               <Text style={styles.statTitle}>Rooms</Text>
             </View>
-            <Text style={styles.statValue}>45/120</Text>
+              <Text style={styles.statValue}>
+                {dashboardData.roomSummary?.availableRooms || 0}/{dashboardData.roomSummary?.totalRooms || 0}
+              </Text>
             <Text style={styles.statSubtitle}>Available rooms</Text>
             <View style={styles.statDetails}>
-              <Text style={styles.statDetailText}>45 available</Text>
-              <Text style={styles.statDetailText}>68 occupied</Text>
-              <Text style={styles.statDetailText}>7 maintenance</Text>
+                <Text style={styles.statDetailText}>{dashboardData.roomSummary?.availableRooms || 0} available</Text>
+                <Text style={styles.statDetailText}>{dashboardData.roomSummary?.occupiedRooms || 0} occupied</Text>
+                <Text style={styles.statDetailText}>{dashboardData.roomSummary?.maintenanceRooms || 0} maintenance</Text>
             </View>
           </View>
           
@@ -274,11 +375,11 @@ export default function DashboardScreen() {
             </View>
             <View style={styles.statDoubleValue}>
               <View style={styles.statDoubleItem}>
-                <Text style={styles.statValue}>15</Text>
+                  <Text style={styles.statValue}>{dashboardData.checkInOutSummary?.todaysCheckIns || 0}</Text>
                 <Text style={styles.statSubtitle}>Today's check-ins</Text>
               </View>
               <View style={styles.statDoubleItem}>
-                <Text style={styles.statValue}>12</Text>
+                  <Text style={styles.statValue}>{dashboardData.checkInOutSummary?.todaysCheckOuts || 0}</Text>
                 <Text style={styles.statSubtitle}>Today's check-outs</Text>
               </View>
             </View>
@@ -290,9 +391,13 @@ export default function DashboardScreen() {
               <FontAwesome5 name="dollar-sign" size={20} color="#2E7D32" />
               <Text style={styles.statTitle}>Revenue</Text>
             </View>
-            <Text style={styles.statValue}>$24,500</Text>
+              <Text style={styles.statValue}>
+                ${(dashboardData.revenueSummary?.todaysRevenue || 0).toLocaleString()}
+              </Text>
             <Text style={styles.statSubtitle}>Today's revenue</Text>
-            <Text style={styles.statDetail}>This month: $356,000</Text>
+              <Text style={styles.statDetail}>
+                This month: ${(dashboardData.revenueSummary?.thisMonthRevenue || dashboardData.revenueSummary?.revenueThisMonth || dashboardData.revenueSummary?.monthlyRevenue || 0).toLocaleString()}
+              </Text>
           </View>
           
           {/* Reservations Card */}
@@ -301,10 +406,11 @@ export default function DashboardScreen() {
               <MaterialIcons name="event-available" size={24} color="#1976D2" />
               <Text style={styles.statTitle}>Reservations</Text>
             </View>
-            <Text style={styles.statValue}>32</Text>
+              <Text style={styles.statValue}>{dashboardData.upcomingReservationsNext7Days || 0}</Text>
             <Text style={styles.statSubtitle}>Next 7 days</Text>
           </View>
         </View>
+        )}
         
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Access</Text>
@@ -340,27 +446,6 @@ export default function DashboardScreen() {
             <MaterialIcons name="people" size={24} color="white" />
             <Text style={styles.actionButtonText}>CUSTOMER LIST</Text>
           </TouchableOpacity>
-        </View>
-        
-        {/* Database Status */}
-        <View style={styles.databaseStatus}>
-          <Text style={styles.databaseTitle}>Database Status</Text>
-          <View style={styles.databaseDetails}>
-            <View style={styles.databaseItem}>
-              <Text style={styles.databaseLabel}>Total Customers:</Text>
-              <Text style={styles.databaseValue}>250</Text>
-            </View>
-            
-            <View style={styles.databaseItem}>
-              <Text style={styles.databaseLabel}>Last Update:</Text>
-              <Text style={styles.databaseValue}>26.03.2025 22:54:30</Text>
-            </View>
-            
-            <View style={styles.databaseItem}>
-              <Text style={styles.databaseLabel}>Database Connection:</Text>
-              <Text style={[styles.databaseValue, styles.activeStatus]}>Active</Text>
-            </View>
-          </View>
         </View>
         
         {/* Footer */}
@@ -533,6 +618,69 @@ const styles = StyleSheet.create({
     marginTop: 15,
     marginBottom: 10,
   },
+  summaryHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: '#f0f0f0',
+  },
+  refreshText: {
+    color: '#6B3DC9',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  loadingText: {
+    color: '#6B3DC9',
+    fontSize: 14,
+    marginTop: 10,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+    backgroundColor: '#fff3f3',
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
+  },
+  errorText: {
+    color: '#E53935',
+    fontSize: 14,
+    marginTop: 10,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#6B3DC9',
+    borderRadius: 4,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -609,44 +757,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 10,
     fontSize: 14,
-  },
-  databaseStatus: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  databaseTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
-  databaseDetails: {
-    marginBottom: 5,
-  },
-  databaseItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  databaseLabel: {
-    color: '#555',
-    fontSize: 14,
-  },
-  databaseValue: {
-    color: '#333',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  activeStatus: {
-    color: '#4CAF50',
-    fontWeight: 'bold',
   },
   footer: {
     alignItems: 'center',
