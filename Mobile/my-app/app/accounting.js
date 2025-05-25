@@ -130,6 +130,10 @@ export default function AccountingScreen() {
   const [isEditMode, setEditMode] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
   
+  // Detay modalı için eklenecek state'ler
+  const [isDetailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  
   // Detect screen width
   const windowWidth = Dimensions.get('window').width;
   const isMobile = windowWidth < 500; // Consider devices with width < 500px as mobile
@@ -759,6 +763,183 @@ export default function AccountingScreen() {
     );
   };
   
+  // Detay modalını açan fonksiyon
+  const showItemDetails = (item) => {
+    setSelectedItem(item);
+    setDetailModalVisible(true);
+  };
+  
+  // İncomlar için liste öğeleri
+  const renderIncomeItem = (income) => (
+    <TouchableOpacity 
+      key={income.id} 
+      style={styles.tableRow}
+      onPress={() => showItemDetails(income)}
+    >
+      <Text style={[styles.tableCell, {flex: 1}]} numberOfLines={1}>{income.incomeNumber}</Text>
+      <Text style={[styles.tableCell, {flex: 1.5}]} numberOfLines={1}>{income.customerName}</Text>
+      <Text style={[styles.tableCell, {flex: 1, textAlign: 'right'}]}>₺{income.amount}</Text>
+      <TouchableOpacity 
+        style={styles.actionButton}
+        onPress={(event) => {
+          // İşlem menüsü
+          event.stopPropagation(); // Tıklamanın ana öğeye gitmemesi için
+          showActionMenu(income, event);
+        }}
+      >
+        <MaterialIcons name="more-vert" size={20} color="#555" />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+  
+  // Giderler için liste öğeleri
+  const renderExpenseItem = (expense) => (
+    <TouchableOpacity 
+      key={expense.id} 
+      style={styles.tableRow}
+      onPress={() => showItemDetails(expense)}
+    >
+      <Text style={[styles.tableCell, {flex: 1}]} numberOfLines={1}>{expense.expenseNumber}</Text>
+      <Text style={[styles.tableCell, {flex: 1.5}]} numberOfLines={1}>{expense.category}</Text>
+      <Text style={[styles.tableCell, {flex: 1, textAlign: 'right'}]}>₺{expense.amount}</Text>
+      <TouchableOpacity 
+        style={styles.actionButton}
+        onPress={(event) => {
+          // İşlem menüsü
+          event.stopPropagation(); // Tıklamanın ana öğeye gitmemesi için
+          showActionMenu(expense, event);
+        }}
+      >
+        <MaterialIcons name="more-vert" size={20} color="#555" />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+  
+  // Detay modalı için render fonksiyonunu iyileştirelim
+  const renderDetailModal = () => {
+    if (!selectedItem) return null;
+    
+    const isIncome = activeTab === 'incomes';
+    
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isDetailModalVisible}
+        onRequestClose={() => setDetailModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setDetailModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+              <View style={styles.detailModalContent}>
+                <View style={styles.detailModalHeader}>
+                  <Text style={styles.detailModalTitle}>
+                    {isIncome ? 'Income Details' : 'Expense Details'}
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.closeButton} 
+                    onPress={() => setDetailModalVisible(false)}
+                  >
+                    <MaterialIcons name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                
+                <ScrollView style={styles.detailModalBody}>
+                  {isIncome ? (
+                    // Improved Income details layout
+                    <View style={styles.detailContainer}>
+                      <View style={styles.detailRow}>
+                        <View style={styles.detailField}>
+                          <Text style={styles.detailLabel}>Income Number:</Text>
+                          <Text style={styles.detailValue}>{selectedItem.incomeNumber}</Text>
+                        </View>
+                        <View style={styles.detailField}>
+                          <Text style={styles.detailLabel}>Date:</Text>
+                          <Text style={styles.detailValue}>{formatDate(selectedItem.date)}</Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.detailRow}>
+                        <View style={styles.detailField}>
+                          <Text style={styles.detailLabel}>Customer Name:</Text>
+                          <Text style={styles.detailValue}>{selectedItem.customerName}</Text>
+                        </View>
+                        <View style={styles.detailField}>
+                          <Text style={styles.detailLabel}>Room Number:</Text>
+                          <Text style={styles.detailValue}>{selectedItem.roomNumber || 'N/A'}</Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.amountContainer}>
+                        <Text style={styles.amountLabel}>Amount:</Text>
+                        <Text style={styles.amountValue}>₺{selectedItem.amount.toLocaleString()}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    // Improved Expense details layout
+                    <View style={styles.detailContainer}>
+                      <View style={styles.detailRow}>
+                        <View style={styles.detailField}>
+                          <Text style={styles.detailLabel}>Expense Number:</Text>
+                          <Text style={styles.detailValue}>{selectedItem.expenseNumber}</Text>
+                        </View>
+                        <View style={styles.detailField}>
+                          <Text style={styles.detailLabel}>Date:</Text>
+                          <Text style={styles.detailValue}>{formatDate(selectedItem.date)}</Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.detailRow}>
+                        <View style={styles.detailField}>
+                          <Text style={styles.detailLabel}>Category:</Text>
+                          <Text style={styles.detailValue}>{selectedItem.category}</Text>
+                        </View>
+                      </View>
+                      
+                      <View style={styles.descriptionContainer}>
+                        <Text style={styles.detailLabel}>Description:</Text>
+                        <Text style={styles.descriptionText}>{selectedItem.description || 'N/A'}</Text>
+                      </View>
+                      
+                      <View style={styles.amountContainer}>
+                        <Text style={styles.amountLabel}>Amount:</Text>
+                        <Text style={styles.amountValue}>₺{selectedItem.amount.toLocaleString()}</Text>
+                      </View>
+                    </View>
+                  )}
+                </ScrollView>
+                
+                <View style={styles.actionButtonContainer}>
+                  <TouchableOpacity 
+                    style={styles.editButton}
+                    onPress={() => {
+                      setDetailModalVisible(false);
+                      handleEditItem(selectedItem);
+                    }}
+                  >
+                    <MaterialIcons name="edit" size={18} color="white" />
+                    <Text style={styles.buttonText}>Edit</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.deleteButton}
+                    onPress={() => {
+                      setDetailModalVisible(false);
+                      handleDeleteItem(selectedItem);
+                    }}
+                  >
+                    <MaterialIcons name="delete" size={18} color="white" />
+                    <Text style={styles.buttonText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
+  
   // Action menu handlers
   const showActionMenu = (item, event) => {
     // Get the position of the touch to position the menu
@@ -972,7 +1153,7 @@ export default function AccountingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar backgroundColor="#6B3DC9" barStyle="light-content" />
+      <StatusBar backgroundColor="#7e3aed" barStyle="light-content" />
       
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
@@ -989,6 +1170,11 @@ export default function AccountingScreen() {
       <View style={styles.mainContainer}>
         {/* Summary Cards */}
         <View style={styles.summaryContainer}>
+          {/* Mobil cihazlarda daha iyi görünüm için kontrol */}
+          {isMobile ? (
+            // Mobil cihazlar için 2x2 grid görünüm
+            <>
+              <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryTitle}>Daily Income</Text>
             <Text style={[styles.summaryAmount, styles.incomeAmount]}>₺{dailyIncome.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
@@ -999,8 +1185,10 @@ export default function AccountingScreen() {
             <Text style={styles.summaryTitle}>Daily Expense</Text>
             <Text style={[styles.summaryAmount, styles.expenseAmount]}>₺{dailyExpense.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
             <Text style={styles.summaryDate}>{format(currentDate, 'dd.MM.yyyy')}</Text>
+                </View>
           </View>
           
+              <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryTitle}>Weekly Income</Text>
             <Text style={[styles.summaryAmount, styles.incomeAmount]}>₺{weeklyIncome.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
@@ -1012,6 +1200,36 @@ export default function AccountingScreen() {
             <Text style={[styles.summaryAmount, styles.expenseAmount]}>₺{weeklyExpense.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
             <Text style={styles.summaryDate}>Last 7 days</Text>
           </View>
+              </View>
+            </>
+          ) : (
+            // Geniş ekranlar için original grid
+            <>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>Daily Income</Text>
+                <Text style={[styles.summaryAmount, styles.incomeAmount]}>₺{dailyIncome.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                <Text style={styles.summaryDate}>{format(currentDate, 'dd.MM.yyyy')}</Text>
+              </View>
+              
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>Daily Expense</Text>
+                <Text style={[styles.summaryAmount, styles.expenseAmount]}>₺{dailyExpense.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                <Text style={styles.summaryDate}>{format(currentDate, 'dd.MM.yyyy')}</Text>
+              </View>
+              
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>Weekly Income</Text>
+                <Text style={[styles.summaryAmount, styles.incomeAmount]}>₺{weeklyIncome.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                <Text style={styles.summaryDate}>Last 7 days</Text>
+              </View>
+              
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>Weekly Expense</Text>
+                <Text style={[styles.summaryAmount, styles.expenseAmount]}>₺{weeklyExpense.toLocaleString('tr-TR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
+                <Text style={styles.summaryDate}>Last 7 days</Text>
+              </View>
+            </>
+          )}
         </View>
         
         {/* Tabs */}
@@ -1032,6 +1250,9 @@ export default function AccountingScreen() {
         
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
+          {isMobile ? (
+            // Mobil görünüm - arama ve buton alt alta
+            <>
           <View style={styles.searchContainer}>
             <Feather name="search" size={18} color="#777" style={styles.searchIcon} />
             <TextInput
@@ -1062,6 +1283,42 @@ export default function AccountingScreen() {
               Add {activeTab === 'incomes' ? 'Income' : 'Expense'}
             </Text>
           </TouchableOpacity>
+            </>
+          ) : (
+            // Normal görünüm - yan yana
+            <>
+              <View style={styles.searchContainer}>
+                <Feather name="search" size={18} color="#777" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={`Search ${activeTab}`}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery ? (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Feather name="x" size={18} color="#777" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.addButton}
+                onPress={() => {
+                  if (activeTab === 'incomes') {
+                    setIncomeModalVisible(true);
+                  } else {
+                    setExpenseModalVisible(true);
+                  }
+                }}
+              >
+                <Feather name="plus" size={18} color="#fff" />
+                <Text style={styles.addButtonText}>
+                  Add {activeTab === 'incomes' ? 'Income' : 'Expense'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
         
         {/* Table Content */}
@@ -1072,58 +1329,26 @@ export default function AccountingScreen() {
             filteredIncomes.length > 0 ? (
               <View style={styles.table}>
                 <View style={styles.tableHeader}>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 0.8 }]}>No.</Text>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1.5 }]}>Date</Text>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 2 }]}>Customer</Text>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1 }]}>Room</Text>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1, textAlign: 'right' }, { textAlign: 'right' }]}>Amount</Text>
-                  <View style={{ width: 40 }} />
+                  <Text style={[styles.tableHeaderCell, {flex: 1}]}>No.</Text>
+                  <Text style={[styles.tableHeaderCell, {flex: 1.5}]}>Customer</Text>
+                  <Text style={[styles.tableHeaderCell, {flex: 1, textAlign: 'right'}]}>Amount</Text>
+                  <View style={{width: 40}} />
                 </View>
                 
-                {filteredIncomes.map((income) => (
-                  <View key={income.id} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 0.8 }]} numberOfLines={1}>{income.incomeNumber}</Text>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1.5 }]} numberOfLines={1}>{formatDate(income.date)}</Text>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 2 }]} numberOfLines={1}>{income.customerName}</Text>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1 }]} numberOfLines={1}>{income.roomNumber}</Text>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1, textAlign: 'right' }, { textAlign: 'right' }]}>₺{income.amount}</Text>
-                    <TouchableOpacity 
-                      style={styles.actionButton}
-                      onPress={(event) => showActionMenu(income, event)}
-                    >
-                      <MaterialIcons name="more-vert" size={20} color="#555" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                {filteredIncomes.map(income => renderIncomeItem(income))}
               </View>
             ) : renderNoResults()
           ) : (
             filteredExpenses.length > 0 ? (
               <View style={styles.table}>
                 <View style={styles.tableHeader}>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 0.8 }]}>No.</Text>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1.5 }]}>Date</Text>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1.5 }]}>Category</Text>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 2 }]}>Desc.</Text>
-                  <Text style={[styles.tableHeaderCell, isMobile ? styles.mobileHeaderCell : { flex: 1, textAlign: 'right' }, { textAlign: 'right' }]}>Amount</Text>
-                  <View style={{ width: 40 }} />
+                  <Text style={[styles.tableHeaderCell, {flex: 1}]}>No.</Text>
+                  <Text style={[styles.tableHeaderCell, {flex: 1.5}]}>Category</Text>
+                  <Text style={[styles.tableHeaderCell, {flex: 1, textAlign: 'right'}]}>Amount</Text>
+                  <View style={{width: 40}} />
                 </View>
                 
-                {filteredExpenses.map((expense) => (
-                  <View key={expense.id} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 0.8 }]} numberOfLines={1}>{expense.expenseNumber}</Text>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1.5 }]} numberOfLines={1}>{formatDate(expense.date)}</Text>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1.5 }]} numberOfLines={1}>{expense.category}</Text>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 2 }]} numberOfLines={1}>{expense.description}</Text>
-                    <Text style={[styles.tableCell, isMobile ? styles.mobileCell : { flex: 1, textAlign: 'right' }, { textAlign: 'right' }]}>₺{expense.amount}</Text>
-                    <TouchableOpacity 
-                      style={styles.actionButton}
-                      onPress={(event) => showActionMenu(expense, event)}
-                    >
-                      <MaterialIcons name="more-vert" size={20} color="#555" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
+                {filteredExpenses.map(expense => renderExpenseItem(expense))}
               </View>
             ) : renderNoResults()
           )}
@@ -1134,6 +1359,9 @@ export default function AccountingScreen() {
       {renderIncomeModal()}
       {renderExpenseModal()}
       {renderDatePickerModal()}
+      
+      {/* Detay Modalı */}
+      {renderDetailModal()}
       
       {/* Action Menu */}
       {isActionMenuVisible && (
@@ -1191,7 +1419,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#6B3DC9',
+    backgroundColor: '#7e3aed',
     paddingVertical: 15,
     paddingHorizontal: 15,
   },
@@ -1216,6 +1444,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
   },
   summaryCard: {
     backgroundColor: '#fff',
@@ -1405,7 +1639,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 20,
     width: '100%',
     maxHeight: '80%',
@@ -1427,8 +1661,8 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 4,
-    padding: 10,
+    borderRadius: 8,
+    padding: 12,
     fontSize: 14,
   },
   textArea: {
@@ -1538,5 +1772,198 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#dee2e6',
     marginVertical: 10,
+  },
+  '@media (max-width: 480px)': {
+    summaryCard: {
+      width: '48%',
+      marginBottom: 0,
+      padding: 12,
+    },
+    summaryTitle: {
+      fontSize: 12,
+    },
+    summaryAmount: {
+      fontSize: 16,
+      marginBottom: 8,
+    },
+    summaryDate: {
+      fontSize: 10,
+    },
+    tableHeaderCell: {
+      fontSize: 12,
+    },
+    tableCell: {
+      fontSize: 12,
+    },
+    mobileCell: {
+      fontSize: 11,
+      paddingHorizontal: 2,
+    },
+    addButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+    },
+    addButtonText: {
+      fontSize: 12,
+    },
+    actionContainer: {
+      flexDirection: 'column',
+      alignItems: 'stretch',
+    },
+    searchContainer: {
+      marginBottom: 8,
+      marginRight: 0,
+    },
+    addButton: {
+      alignSelf: 'flex-end',
+    },
+    modalContent: {
+      padding: 16,
+      borderRadius: 10,
+    },
+    modalTitle: {
+      fontSize: 18,
+      marginBottom: 16,
+    },
+    formGroup: {
+      marginBottom: 12,
+    },
+    inputLabel: {
+      fontSize: 12,
+    },
+    input: {
+      padding: 10,
+      fontSize: 12,
+    },
+    buttonText: {
+      fontSize: 12,
+    },
+    table: {
+      borderRadius: 8,
+    },
+    tableHeader: {
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+    },
+    tableRow: {
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+    },
+  },
+  statusBar: {
+    backgroundColor: '#7e3aed',
+  },
+  detailModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 0,
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '80%',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  detailModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#7e3aed',
+    padding: 15,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  detailModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  detailModalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+  },
+  detailContainer: {
+    marginBottom: 15,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 15,
+  },
+  detailField: {
+    flex: 1,
+    marginRight: 10,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  detailValue: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  descriptionContainer: {
+    marginBottom: 15,
+  },
+  descriptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+    marginTop: 5,
+    backgroundColor: '#f9f9f9',
+    padding: 10,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: '#7e3aed',
+  },
+  amountContainer: {
+    backgroundColor: '#f0f8ff',
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 5,
+    marginBottom: 10,
+  },
+  amountLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  amountValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    textAlign: 'right',
+  },
+  actionButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    backgroundColor: '#f5f5f5',
+    padding: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  editButton: {
+    backgroundColor: '#2196F3',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  deleteButton: {
+    backgroundColor: '#F44336',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 }); 
