@@ -103,7 +103,7 @@ export default function CustomerInfoScreen() {
         FullName: c.fullName || 'Unknown',
         Phone: c.phone || 'No phone',
         Email: c.email || 'No email',
-        Status: c.status || 'Standart',
+        Status: c.status || 'Standard',
       }));
   
       if (shouldRefresh || pageNum === 1) {
@@ -178,7 +178,7 @@ export default function CustomerInfoScreen() {
         Phone: detailedCustomer.phone || 'No phone',
         Email: detailedCustomer.email || 'No email',
         Address: detailedCustomer.address || 'No address provided',
-        Status: detailedCustomer.status || 'Standart',
+        Status: detailedCustomer.status || 'Standard',
         reservations: detailedCustomer.reservations || [],
         nationality: detailedCustomer.nationality,
         idNumber: detailedCustomer.idNumber,
@@ -350,7 +350,7 @@ export default function CustomerInfoScreen() {
     const customerEmail = item.Email || 'No email';
     const customerId = item.id?.toString() || '';
     const avatarColor = getAvatarColor(item.id);
-    const customerStatus = item.Status === 'VIP' ? 'VIP' : 'Standart';
+    const customerStatus = item.Status === 'VIP' ? 'VIP' : 'Standard';
     const isVip = customerStatus === 'VIP';
     
     console.log('Customer data:', { 
@@ -401,7 +401,7 @@ export default function CustomerInfoScreen() {
             style={styles.detailsButton}
             onPress={() => viewCustomerDetails(item)}
           >
-            <Text style={styles.detailsButtonText}>DETAYLAR</Text>
+            <Text style={styles.detailsButtonText}>DETAILS</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -417,7 +417,7 @@ export default function CustomerInfoScreen() {
     const customerPhone = displayData.Phone || (isEditing ? '' : 'No phone number provided');
     const customerEmail = displayData.Email || (isEditing ? '' : 'No email provided');
     const customerAddress = displayData.Address || (isEditing ? '' : 'No address provided');
-    const customerStatus = displayData.Status || 'Standart';
+    const customerStatus = displayData.Status || 'Standard';
     const isVip = customerStatus === 'VIP';
     
     // Format date to be more readable if exists
@@ -488,7 +488,7 @@ export default function CustomerInfoScreen() {
               </TouchableOpacity>
             </View>
             
-            <ScrollView style={styles.modalContent}>
+            <ScrollView style={[styles.modalContent, { paddingBottom: 70 }]}>
               <View style={styles.customerDetailHeader}>
                  <View style={[styles.detailAvatar, { backgroundColor: getAvatarColor(displayData.id) }]}>
                    <Text style={styles.detailAvatarText}>{getInitials(customerName)}</Text>
@@ -695,8 +695,9 @@ export default function CustomerInfoScreen() {
                    </Text>
                  </View>
               </View>
+            </ScrollView>
               
-              <View style={styles.actionButtons}>
+            <View style={styles.floatingActionButtons}>
                 {isEditing ? (
                   <>
                     <TouchableOpacity 
@@ -739,7 +740,6 @@ export default function CustomerInfoScreen() {
                   </>
                 )}
               </View>
-            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -887,14 +887,14 @@ export default function CustomerInfoScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Müşteri Bilgileri</Text>
+        <Text style={styles.headerTitle}>Customer Information</Text>
       </View>
       
       <View style={styles.searchContainer}>
         <MaterialIcons name="search" size={24} color="#666" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Müşteri Ara (İsim, E-posta, Telefon, Adres, TC Kimlik)"
+          placeholder="Search Customers (Name, Email, Phone, Address, ID)"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
@@ -905,7 +905,7 @@ export default function CustomerInfoScreen() {
         ) : null}
       </View>
       
-      <Text style={styles.sectionTitle}>Müşteri Listesi</Text>
+      <Text style={styles.sectionTitle}>Customer List</Text>
       
       {error ? (
         <View style={styles.errorContainer}>
@@ -1212,6 +1212,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    position: 'relative',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1369,6 +1370,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+  },
+  floatingActionButtons: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 15,
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   actionButtons: {
     flexDirection: 'row',
