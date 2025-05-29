@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator, FlatList, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator, FlatList, Alert, ScrollView, Dimensions } from 'react-native';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { hasPageAccess } from '../services/roleService';
 import AccessDenied from '../components/AccessDenied';
@@ -94,11 +94,11 @@ export default function FinancialReportsScreen() {
     }
   }, [user]);
   
-  // Get Turkish month names based on month number
-  const getTurkishMonthName = (month) => {
+  // Get month names based on month number
+  const getMonthName = (month) => {
     const monthNames = [
-      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
     ];
     return monthNames[month - 1]; // month is 1-based
   };
@@ -154,7 +154,7 @@ export default function FinancialReportsScreen() {
         const monthlyData = response.data.map(item => ({
           year: item.year,
           month: item.month,
-          monthName: getTurkishMonthName(item.month),
+          monthName: getMonthName(item.month),
           revenue: item.revenue || 0,
           expenses: item.expenses || 0,
           profit: (item.revenue || 0) - (item.expenses || 0),
@@ -194,7 +194,7 @@ export default function FinancialReportsScreen() {
       months.push({
         year,
         month,
-        monthName: getTurkishMonthName(month),
+        monthName: getMonthName(month),
         revenue: Math.floor(Math.random() * 100000) + 50000,
         expenses: Math.floor(Math.random() * 60000) + 30000,
         profit: 0,
@@ -220,10 +220,10 @@ export default function FinancialReportsScreen() {
   
   // Render a table row
   const renderItem = ({ item }) => {
-    // Direct mapping of month number to Turkish month name
+    // Direct mapping of month number to month name
     const monthNames = [
-      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
     ];
     
     // Get month name directly from the month number (1-12)
@@ -231,6 +231,43 @@ export default function FinancialReportsScreen() {
       ? monthNames[item.month - 1] 
       : `${item.month}`;
     
+    // Check if we're on mobile
+    const windowWidth = Dimensions.get('window').width;
+    const isMobile = windowWidth < 500;
+    
+    if (isMobile) {
+      // Mobile optimized view with a card layout
+      return (
+        <View style={styles.mobileCard}>
+          <View style={styles.mobileCardHeader}>
+            <Text style={styles.mobileCardTitle}>{monthName}</Text>
+            <Text style={[styles.mobileCardProfit, item.profit < 0 ? styles.negativeProfit : styles.positiveProfit]}>
+              {item.profit.toLocaleString()} ₺
+            </Text>
+          </View>
+          
+          <View style={styles.mobileCardRow}>
+            <View style={styles.mobileCardColumn}>
+              <Text style={styles.mobileCardLabel}>Revenue:</Text>
+              <Text style={styles.mobileCardValue}>{item.revenue.toLocaleString()} ₺</Text>
+            </View>
+            <View style={styles.mobileCardColumn}>
+              <Text style={styles.mobileCardLabel}>Expenses:</Text>
+              <Text style={styles.mobileCardValue}>{item.expenses.toLocaleString()} ₺</Text>
+            </View>
+          </View>
+          
+          <View style={styles.mobileCardFooter}>
+            <Text style={styles.mobileCardLabel}>Profit Margin:</Text>
+            <Text style={[styles.mobileCardMargin, item.profitMargin < 0 ? styles.negativeProfit : styles.positiveProfit]}>
+              %{item.profitMargin}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+    
+    // Desktop view (original table row)
     return (
       <View style={styles.tableRow}>
         <Text style={styles.tableCell}>{monthName}</Text>
@@ -247,49 +284,52 @@ export default function FinancialReportsScreen() {
   };
   
   return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialIcons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Finansal Raporlar</Text>
+        <Text style={styles.headerTitle}>Financial Reports</Text>
         <View style={{ width: 24 }} />
       </View>
       
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3C3169" />
-          <Text style={styles.loadingText}>Finansal veriler yükleniyor...</Text>
+          <Text style={styles.loadingText}>Loading financial data...</Text>
         </View>
       ) : error ? (
         <View style={styles.content}>
           <FontAwesome5 name="exclamation-circle" size={80} color="#e74c3c" />
-          <Text style={styles.title}>Hata Oluştu</Text>
+          <Text style={styles.title}>Error Occurred</Text>
           <Text style={styles.subtitle}>{error}</Text>
           <TouchableOpacity 
             style={styles.retryButton}
             onPress={() => setYear(prev => prev)} // This will trigger a re-fetch
           >
-            <Text style={styles.retryButtonText}>Tekrar Dene</Text>
+            <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
       ) : financialData.length === 0 ? (
         <View style={styles.content}>
           <FontAwesome5 name="chart-line" size={80} color="#2E86C1" />
-          <Text style={styles.title}>Veri Bulunamadı</Text>
-          <Text style={styles.subtitle}>{year} yılı için finansal veri bulunamadı.</Text>
+          <Text style={styles.title}>No Data Found</Text>
+          <Text style={styles.subtitle}>No financial data found for the year {year}.</Text>
         </View>
       ) : (
         <ScrollView style={styles.scrollContainer}>
           {/* Year selector */}
           <View style={styles.yearSelectorContainer}>
-            <Text style={styles.yearSelectorLabel}>Yıl</Text>
-            <View style={styles.pickerContainer}>
+            <Text style={styles.yearSelectorLabel}>Year</Text>
+              <View style={[styles.pickerContainer, Dimensions.get('window').width < 500 ? styles.mobilePickerContainer : null]}>
               <Picker
                 selectedValue={year}
                 onValueChange={(itemValue) => setYear(itemValue)}
-                style={styles.yearPicker}
+                  style={[styles.yearPicker, Dimensions.get('window').width < 500 ? styles.mobileYearPicker : null]}
                 mode="dropdown"
+                  dropdownIconColor="#7e3aed"
               >
                 {availableYears.map((y) => (
                   <Picker.Item key={y} label={y.toString()} value={y} />
@@ -300,46 +340,86 @@ export default function FinancialReportsScreen() {
           
           {/* Summary Cards */}
           <View style={styles.summaryContainer}>
+              {Dimensions.get('window').width < 500 ? (
+                // Mobile-optimized summary cards
+                <>
+                  <View style={styles.mobileSummaryCard}>
+                    <Text style={styles.summaryTitle}>Total Revenue ({year})</Text>
+                    <Text style={styles.summaryValueRevenue}>{summaryData.totalRevenue.toLocaleString()} ₺</Text>
+                  </View>
+                  
+                  <View style={styles.mobileSummaryCard}>
+                    <Text style={styles.summaryTitle}>Total Expenses ({year})</Text>
+                    <Text style={styles.summaryValueExpense}>{summaryData.totalExpenses.toLocaleString()} ₺</Text>
+                  </View>
+                  
+                  <View style={styles.mobileSummaryCard}>
+                    <Text style={styles.summaryTitle}>Net Profit ({year})</Text>
+                    <Text style={[styles.summaryValueProfit, summaryData.netProfit < 0 ? styles.negativeProfit : styles.positiveProfit]}>
+                      {summaryData.netProfit.toLocaleString()} ₺
+                    </Text>
+                    <Text style={styles.profitPercentage}>
+                      {summaryData.profitMargin}% of total revenue
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                // Desktop view - original cards
+                <>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Toplam Gelir ({year})</Text>
+              <Text style={styles.summaryTitle}>Total Revenue ({year})</Text>
               <Text style={styles.summaryValueRevenue}>{summaryData.totalRevenue.toLocaleString()} ₺</Text>
             </View>
             
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Toplam Gider ({year})</Text>
+              <Text style={styles.summaryTitle}>Total Expenses ({year})</Text>
               <Text style={styles.summaryValueExpense}>{summaryData.totalExpenses.toLocaleString()} ₺</Text>
             </View>
             
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Net Kar ({year})</Text>
+              <Text style={styles.summaryTitle}>Net Profit ({year})</Text>
               <Text style={[styles.summaryValueProfit, summaryData.netProfit < 0 ? styles.negativeProfit : styles.positiveProfit]}>
                 {summaryData.netProfit.toLocaleString()} ₺
               </Text>
               <Text style={styles.profitPercentage}>
-                {summaryData.profitMargin}% toplam gelirden
+                {summaryData.profitMargin}% of total revenue
               </Text>
             </View>
+                </>
+              )}
           </View>
           
           {/* Table of monthly data */}
           <View style={styles.tableContainer}>
-            <Text style={styles.tableTitle}>Aylık Finansal Veriler - {year}</Text>
+            <Text style={styles.tableTitle}>Monthly Financial Data - {year}</Text>
             
+              {/* Check screen width for responsive design */}
+              {Dimensions.get('window').width < 500 ? (
+                // Mobile view - we'll use cards layout instead of table
+                <View style={styles.mobileCardContainer}>
+                  {financialData.map((item) => renderItem({ item }))}
+                </View>
+              ) : (
+                // Desktop view - traditional table
+                <>
             {/* Table header */}
             <View style={styles.tableHeader}>
-              <Text style={styles.tableHeaderCell}>Ay</Text>
-              <Text style={styles.tableHeaderCellRight}>Gelir</Text>
-              <Text style={styles.tableHeaderCellRight}>Gider</Text>
-              <Text style={styles.tableHeaderCellRight}>Kar</Text>
-              <Text style={styles.tableHeaderCellRight}>Kar Marjı</Text>
+              <Text style={styles.tableHeaderCell}>Month</Text>
+              <Text style={styles.tableHeaderCellRight}>Revenue</Text>
+              <Text style={styles.tableHeaderCellRight}>Expenses</Text>
+              <Text style={styles.tableHeaderCellRight}>Profit</Text>
+              <Text style={styles.tableHeaderCellRight}>Profit Margin</Text>
             </View>
             
             {/* Table rows */}
             {financialData.map((item) => renderItem({ item }))}
+                </>
+              )}
           </View>
         </ScrollView>
       )}
     </SafeAreaView>
+    </>
   );
 }
 
@@ -352,20 +432,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    backgroundColor: '#3C3169',
+    backgroundColor: '#7e3aed',
     paddingVertical: 15,
     paddingHorizontal: 15,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   headerTitle: {
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
+    textAlign: 'center',
+    flex: 1,
   },
   backButton: {
-    padding: 5,
+    padding: 8,
+    borderRadius: 20,
   },
   content: {
     flex: 1,
@@ -525,6 +613,69 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
+  
+  // Mobile-optimized card layout styles
+  mobileCardContainer: {
+    marginTop: 10,
+  },
+  mobileCard: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+    padding: 15,
+  },
+  mobileCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 10,
+    marginBottom: 10,
+  },
+  mobileCardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#3C3169',
+  },
+  mobileCardProfit: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  mobileCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  mobileCardColumn: {
+    flex: 1,
+  },
+  mobileCardLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 3,
+  },
+  mobileCardValue: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  mobileCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 10,
+  },
+  mobileCardMargin: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  
   // Responsive styles for different screen sizes
   '@media (max-width: 768px)': {
     summaryCard: {
@@ -532,8 +683,52 @@ const styles = StyleSheet.create({
     },
   },
   '@media (max-width: 480px)': {
+    yearSelectorContainer: {
+      justifyContent: 'space-between',
+    },
+    summaryContainer: {
+      flexDirection: 'column',
+    },
     summaryCard: {
       width: '100%',
+      marginHorizontal: 0,
     },
+    yearSelectorLabel: {
+      fontSize: 14,
+    },
+    pickerContainer: {
+      width: 120,
+    },
+    yearPicker: {
+      width: 120,
+    },
+  },
+  
+  // Mobile summary card styles
+  mobileSummaryCard: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  
+  // Add mobile specific picker styles
+  mobilePickerContainer: {
+    width: 130,
+    borderRadius: 8,
+    backgroundColor: 'white',
+    borderColor: '#7e3aed',
+    borderWidth: 1,
+  },
+  mobileYearPicker: {
+    width: 130,
+    height: 45,
+    color: '#7e3aed',
   },
 }); 
