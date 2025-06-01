@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, FlatList, ActivityIndicator, Refr
 import { reservationService } from '../../services/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, isValid } from 'date-fns';
-// Web için react-datepicker importu
+// Web import for react-datepicker
 // eslint-disable-next-line import/no-extraneous-dependencies
 import ReactDatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 function formatDate(date) {
   if (!date) return '';
   try {
-    return format(date, 'yyyy-MM-dd'); // API'ye gönderilecek format
+    return format(date, 'yyyy-MM-dd'); // Format for API
   } catch {
     return '';
   }
@@ -23,7 +23,7 @@ function formatDate(date) {
 function formatDisplayDate(date) {
   if (!date) return '';
   try {
-    return format(date, 'dd.MM.yyyy'); // Kullanıcıya gösterilecek format
+    return format(date, 'dd.MM.yyyy'); // Format for display
   } catch {
     return '';
   }
@@ -56,7 +56,7 @@ export default function CheckOutScreen() {
     }
   }, [user, router]);
   
-  const [allCheckOuts, setAllCheckOuts] = useState([]); // API'den gelen ham veri
+  const [allCheckOuts, setAllCheckOuts] = useState([]); // Raw data from API
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,9 +65,9 @@ export default function CheckOutScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [processingId, setProcessingId] = useState(null); // İşlem yapılan rezervasyon ID'sini takip etmek için
+  const [processingId, setProcessingId] = useState(null); // Track which reservation ID is being processed
 
-  // API'den sadece tarih, sayfa ve pageSize ile veri çek
+  // Fetch data from API with just date, page and pageSize
   const fetchCheckOuts = async (params = {}) => {
     setLoading(true);
     setError(null);
@@ -82,7 +82,7 @@ export default function CheckOutScreen() {
       setAllCheckOuts(data.data || []);
       setTotalCount(data.totalCount || 0);
     } catch (err) {
-      setError(err.message || 'Bir hata oluştu');
+      setError(err.message || 'An error occurred');
       setAllCheckOuts([]);
       setTotalCount(0);
     } finally {
@@ -91,13 +91,13 @@ export default function CheckOutScreen() {
     }
   };
 
-  // Tarih veya sayfa değişince otomatik veri çek
+  // Fetch data when date or page changes
   useEffect(() => {
     fetchCheckOuts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, page]);
 
-  // Sayfa her odaklandığında o günün verilerini çek
+  // Fetch today's data when page is focused
   useFocusEffect(
     React.useCallback(() => {
       const today = getToday();
@@ -106,12 +106,12 @@ export default function CheckOutScreen() {
       fetchCheckOuts({ date: today, page: 1 });
       
       return () => {
-        // Cleanup fonksiyonu (gerekirse)
+        // Cleanup function (if needed)
       };
     }, [])
   );
 
-  // Frontend filtreleme (arama kutusu)
+  // Frontend filtering (search box)
   const filteredCheckOuts = useMemo(() => {
     if (!search) return allCheckOuts;
     const lower = search.toLowerCase();
@@ -130,38 +130,38 @@ export default function CheckOutScreen() {
   const handleCheckOut = async (reservationId) => {
     try {
       setLoading(true);
-      setProcessingId(reservationId); // İşlemin başladığını kaydet
-      console.log('Check-out başlatılıyor, ID:', reservationId);
+      setProcessingId(reservationId); // Mark processing started
+      console.log('Starting check-out, ID:', reservationId);
       
       const result = await reservationService.checkOut(reservationId);
-      console.log('Check-out işlemi başarılı:', result);
+      console.log('Check-out successful:', result);
       
-      // Başarılı check-out sonrası
+      // After successful check-out
       if (Platform.OS === 'web') {
-        // Web'de başarılı bildirimi
+        // Web notification
         alert(`✅ Check-out successful for reservation ${reservationId}.`);
         
-        // Sayfa yenilemesi yerine verileri yeniden çekiyoruz
-        setPage(1); // Sayfa numarasını sıfırla
-        await fetchCheckOuts({page: 1}); // Verileri yeniden çek
+        // Fetch data again instead of page refresh
+        setPage(1); // Reset page number
+        await fetchCheckOuts({page: 1}); // Fetch data again
       } else {
-        // Native platformlarda
-        Alert.alert('Başarılı', `Check-out işlemi ${reservationId} için tamamlandı.`);
-        fetchCheckOuts(); // Native'de verileri yenile
+        // Native platforms
+        Alert.alert('Success', `Check-out completed for ${reservationId}.`);
+        fetchCheckOuts(); // Refresh data on native
       }
     } catch (err) {
-      console.error('Check-out hatası:', err);
+      console.error('Check-out error:', err);
       
-      // Hata bildirimi
-      const errorMsg = err.message || 'Check-out işlemi başarısız.';
+      // Error notification
+      const errorMsg = err.message || 'Check-out failed.';
       
       if (Platform.OS === 'web') {
         alert('❌ ' + errorMsg);
       } else {
-        Alert.alert('Hata', errorMsg);
+        Alert.alert('Error', errorMsg);
       }
     } finally {
-      setProcessingId(null); // İşlemin bittiğini işaretle
+      setProcessingId(null); // Mark processing finished
       setLoading(false);
     }
   };
@@ -174,7 +174,7 @@ export default function CheckOutScreen() {
     }
   };
 
-  // Pagination için FlatList'in onEndReached fonksiyonu
+  // FlatList onEndReached function for pagination
   const handleLoadMore = () => {
     if (allCheckOuts.length < totalCount && !loading) {
       setPage(prev => prev + 1);
@@ -201,13 +201,13 @@ export default function CheckOutScreen() {
     return (
       <View style={styles.item}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.itemTitle}>{item.customerName || 'Müşteri Bilgisi Yok'}</Text>
+          <Text style={styles.itemTitle}>{item.customerName || 'No Customer Information'}</Text>
           {renderStatus(item.status)}
         </View>
-        <Text style={styles.itemSub}>Rez. ID: {item.reservationId || '-'}</Text>
-        <Text style={styles.itemSub}>Oda: {item.roomInfo || '-'}</Text>
-        <Text style={styles.itemSub}>Giriş: {formatDisplayDate(item.checkInDate) || '-'}</Text>
-        <Text style={styles.itemSub}>Çıkış: {formatDisplayDate(item.checkOutDate) || '-'}</Text>
+        <Text style={styles.itemSub}>Res. ID: {item.reservationId || '-'}</Text>
+        <Text style={styles.itemSub}>Room: {item.roomInfo || '-'}</Text>
+        <Text style={styles.itemSub}>Check-in: {formatDisplayDate(item.checkInDate) || '-'}</Text>
+        <Text style={styles.itemSub}>Check-out: {formatDisplayDate(item.checkOutDate) || '-'}</Text>
         
         <TouchableOpacity 
           style={[
@@ -219,7 +219,7 @@ export default function CheckOutScreen() {
           disabled={!isCheckedIn || isProcessing}
         >
           <Text style={styles.actionBtnText}>
-            {isProcessing ? 'İşleniyor...' : 'Check-out'}
+            {isProcessing ? 'Processing...' : 'Check-out'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -346,7 +346,7 @@ export default function CheckOutScreen() {
                     color: '#333'
                   }}
                   readOnly
-                  placeholder="Tarih Seçin"
+                  placeholder="Select Date"
                 />
               }
               showPopperArrow={false}
@@ -362,7 +362,7 @@ export default function CheckOutScreen() {
         ) : (
           <>
             <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.dateBtnText}>{date ? formatDisplayDate(date) : 'Tarih Seç'}</Text>
+              <Text style={styles.dateBtnText}>{date ? formatDisplayDate(date) : 'Select Date'}</Text>
             </TouchableOpacity>
             {showDatePicker && (
               <DateTimePicker
@@ -386,7 +386,7 @@ export default function CheckOutScreen() {
             keyExtractor={(item, idx) => item.id?.toString() || item.reservationId?.toString() || idx.toString()}
             renderItem={renderItem}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            ListEmptyComponent={<Text>Seçili filtrelere göre check-out kaydı bulunamadı.</Text>}
+            ListEmptyComponent={<Text>No check-out records found for the selected filters.</Text>}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.5}
           />
