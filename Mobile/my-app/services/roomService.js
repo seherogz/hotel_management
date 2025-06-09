@@ -341,7 +341,7 @@ const roomService = {
       roomId: roomId, // Explicitly set roomId
       roomNumber: apiRoom.roomNumber ? apiRoom.roomNumber.toString() : roomId.toString(),
       status,
-      capacity: `${apiRoom.capacity} kişi`,
+      capacity: `${apiRoom.capacity} people`,
       amenities: apiRoom.features || [],
       price: `₺${apiRoom.pricePerNight}`,
       pricePerNight: apiRoom.pricePerNight,
